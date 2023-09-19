@@ -1,0 +1,30 @@
+[BASIC]
+
+# Regular expression matching correct function names
+function-rgx=[a-z_][a-z0-9_]{2,50}$
+
+[MESSAGES CONTROL]
+
+disable=
+# do not warn about pylint checks being disabled through comments in the code
+ import-error,
+ locally-disabled,
+ superfluous-parens,
+ missing-docstring,
+ too-few-public-methods,
+ broad-except,
+ useless-object-inheritance,
+ super-with-arguments,
+ consider-using-f-string,
+ consider-using-with,
+ unspecified-encoding,
+ line-too-long
+
+[REPORTS]
+
+msg-template='[{msg_id} {symbol}] {msg} File: {path}, line {line}, in {obj}'
+
+[FORMAT]
+
+# Maximum number of characters on a single line.
+max-line-length=120

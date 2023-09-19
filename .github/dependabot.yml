@@ -1,0 +1,13 @@
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/" # Location of package manifests
+    target-branch: "main"
+    schedule:
+      interval: "daily"
+      time: "04:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "(chore)"

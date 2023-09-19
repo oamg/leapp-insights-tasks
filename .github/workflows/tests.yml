@@ -1,0 +1,24 @@
+name: Unit Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    container:
+      image: python:2.7
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install requirements
+      run: pip install --upgrade -r requirements.txt
+    - name: Test
+      run: python -m pytest --cov --cov-report=xml
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        fail_ci_if_error: true
+        verbose: true # optional (default = false)

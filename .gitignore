@@ -1,0 +1,14 @@
+.venv/
+.pre-commit
+.pytest_cache/*
+**/__pycache__/**
+
+.coverage
+
+install-deps
+pre-commit
+
+*.pyc
+
+*.log
+htmlcov/
