@@ -18,7 +18,9 @@ disable=
  consider-using-f-string,
  consider-using-with,
  unspecified-encoding,
- line-too-long
+ line-too-long,
+ too-many-arguments,
+ unnecessary-lambda,
 
 [REPORTS]
 
