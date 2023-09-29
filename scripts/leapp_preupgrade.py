@@ -1,7 +1,6 @@
 import json
 import os
 import subprocess
-import sys
 
 
 # Both classes taken from:
@@ -83,6 +82,8 @@ def run_subprocess(cmd, print_cmd=True, env=None, wait=True):
     The cmd is specified as a list starting with the command and followed by a
     list of arguments. Example: ["yum", "install", "<package>"]
     """
+    if isinstance(cmd, str):
+        raise TypeError("cmd should be a list, not a str")
 
     if print_cmd:
         print("Calling command '%s'" % " ".join(cmd))
@@ -112,17 +113,9 @@ def check_if_package_installed(pkg_name):
     return return_code == 0
 
 
-def do_rhel7_specific_tasks():
+def setup_leapp(command, rhui_pkgs):
     print("Installing leapp ...")
-    output, returncode = run_subprocess(
-        [
-            "yum",
-            "install",
-            "leapp-upgrade",
-            "-y",
-            "--enablerepo=rhel-7-server-extras-rpms",
-        ]
-    )
+    output, returncode = run_subprocess(command)
     if returncode:
         print(
             "Installation of leapp failed with code '%s' and output: %s\n"
@@ -132,69 +125,11 @@ def do_rhel7_specific_tasks():
             message="Installation of leapp failed with code '%s'." % returncode
         )
 
-    print("Check installed rhui packages for RHEL 7 ...")
-    rhel_7_rhui_packages = [
-        {"src_pkg": "rh-amazon-rhui-client", "leapp_pkg": "leapp-rhui-aws"},
-        {
-            "src_pkg": "rh-amazon-rhui-client-sap-bundle",
-            "leapp_pkg": "leapp-rhui-aws-sap-e4s",
-        },
-        {"src_pkg": "rhui-azure-rhel7", "leapp_pkg": "leapp-rhui-azure"},
-        {
-            "src_pkg": "rhui-azure-rhel7-base-sap-apps",
-            "leapp_pkg": "leapp-rhui-azure-sap",
-        },
-        {
-            "src_pkg": "rhui-azure-rhel7-base-sap-ha",
-            "leapp_pkg": "leapp-rhui-azure-sap",
-        },
-        {"src_pkg": "google-rhui-client-rhel7", "leapp_pkg": "leapp-rhui-google"},
-        {
-            "src_pkg": "google-rhui-client-rhel79-sap",
-            "leapp_pkg": "leapp-rhui-google-sap",
-        },
-    ]
-
-    for pkg in rhel_7_rhui_packages:
+    print("Check installed rhui packages ...")
+    for pkg in rhui_pkgs:
         if check_if_package_installed(pkg["src_pkg"]):
             pkg["installed"] = True
-    return [pkg for pkg in rhel_7_rhui_packages if pkg.get("installed", False)]
-
-
-def do_rhel8_specific_tasks():
-    print("Installing leapp ...")
-    output, returncode = run_subprocess(["dnf", "install", "leapp-upgrade", "-y"])
-    if returncode:
-        print(
-            "Installation of leapp failed with code '%s' and output: %s\n"
-            % (returncode, output)
-        )
-        raise ProcessError(
-            message="Installation of leapp failed with code '%s'." % returncode
-        )
-
-    print("Check installed rhui packages for RHEL 8 ...")
-    rhel_8_rhui_packages = [
-        {"src_pkg": "rh-amazon-rhui-client", "leapp_pkg": "leapp-rhui-aws"},
-        {
-            "src_pkg": "rh-amazon-rhui-client-sap-bundle-e4s",
-            "leapp_pkg": "leapp-rhui-aws-sap-e4s",
-        },
-        {"src_pkg": "rhui-azure-rhel8", "leapp_pkg": "leapp-rhui-azure"},
-        {"src_pkg": "rhui-azure-rhel8-eus", "leapp_pkg": "leapp-rhui-azure-eus"},
-        {"src_pkg": "rhui-azure-rhel8-sap-ha", "leapp_pkg": "leapp-rhui-azure-sap"},
-        {"src_pkg": "rhui-azure-rhel8-sapapps", "leapp_pkg": "leapp-rhui-azure-sap"},
-        {"src_pkg": "google-rhui-client-rhel8", "leapp_pkg": "leapp-rhui-google"},
-        {
-            "src_pkg": "google-rhui-client-rhel8-sap",
-            "leapp_pkg": "leapp-rhui-google-sap",
-        },
-    ]
-
-    for pkg in rhel_8_rhui_packages:
-        if check_if_package_installed(pkg["src_pkg"]):
-            pkg["installed"] = True
-    return [pkg for pkg in rhel_8_rhui_packages if pkg.get("installed", False)]
+    return [pkg for pkg in rhui_pkgs if pkg.get("installed", False)]
 
 
 def should_use_no_rhsm_check(rhui_installed, command):
@@ -243,7 +178,7 @@ def execute_preupgrade(command):
     #     raise ProcessError(message="Leapp exited with code '%s'." % returncode)
 
 
-def parse_and_output_results(output):
+def parse_results(output):
     print("Processing preupgrade results ...")
 
     json_report_path = "/var/log/leapp/leapp-report.json"
@@ -263,7 +198,7 @@ def parse_and_output_results(output):
         )
         message = "Your system has %s inhibitors out of %s potential problems." % (
             inhibitor_count,
-            report_entries,
+            len(report_entries),
         )
         alert = inhibitor_count > 0
 
@@ -291,8 +226,10 @@ def main():
     # Exit if not RHEL 7 or 8
     dist, version = get_rhel_version()
     if dist != "rhel" or exit_for_non_eligible_releases(version):
-        print('Exiting because distribution="%s" and version="%s"' % (dist, version))
-        sys.exit(1)
+        raise ProcessError(
+            message='Exiting because distribution="%s" and version="%s"'
+            % (dist, version)
+        )
 
     output = OutputCollector()
 
@@ -301,24 +238,84 @@ def main():
         preupgrade_command = ["/usr/bin/leapp", "preupgrade", "--report-schema=1.1.0"]
         use_no_rhsm = False
         rhui_pkgs = []
-
         if version.startswith("7"):
-            rhui_pkgs = do_rhel7_specific_tasks()
-        elif version.startswith("8"):
-            rhui_pkgs = do_rhel8_specific_tasks()
-        else:
-            raise ProcessError(message="Exiting, unsupported RHEL release %s" % version)
+            leapp_install_command = [
+                "yum",
+                "install",
+                "leapp-upgrade",
+                "-y",
+                "--enablerepo=rhel-7-server-extras-rpms",
+            ]
+            rhel_7_rhui_packages = [
+                {"src_pkg": "rh-amazon-rhui-client", "leapp_pkg": "leapp-rhui-aws"},
+                {
+                    "src_pkg": "rh-amazon-rhui-client-sap-bundle",
+                    "leapp_pkg": "leapp-rhui-aws-sap-e4s",
+                },
+                {"src_pkg": "rhui-azure-rhel7", "leapp_pkg": "leapp-rhui-azure"},
+                {
+                    "src_pkg": "rhui-azure-rhel7-base-sap-apps",
+                    "leapp_pkg": "leapp-rhui-azure-sap",
+                },
+                {
+                    "src_pkg": "rhui-azure-rhel7-base-sap-ha",
+                    "leapp_pkg": "leapp-rhui-azure-sap",
+                },
+                {
+                    "src_pkg": "google-rhui-client-rhel7",
+                    "leapp_pkg": "leapp-rhui-google",
+                },
+                {
+                    "src_pkg": "google-rhui-client-rhel79-sap",
+                    "leapp_pkg": "leapp-rhui-google-sap",
+                },
+            ]
+            rhui_pkgs = setup_leapp(leapp_install_command, rhel_7_rhui_packages)
+        if version.startswith("8"):
+            leapp_install_command = ["dnf", "install", "leapp-upgrade", "-y"]
+            rhel_8_rhui_packages = [
+                {"src_pkg": "rh-amazon-rhui-client", "leapp_pkg": "leapp-rhui-aws"},
+                {
+                    "src_pkg": "rh-amazon-rhui-client-sap-bundle-e4s",
+                    "leapp_pkg": "leapp-rhui-aws-sap-e4s",
+                },
+                {"src_pkg": "rhui-azure-rhel8", "leapp_pkg": "leapp-rhui-azure"},
+                {
+                    "src_pkg": "rhui-azure-rhel8-eus",
+                    "leapp_pkg": "leapp-rhui-azure-eus",
+                },
+                {
+                    "src_pkg": "rhui-azure-rhel8-sap-ha",
+                    "leapp_pkg": "leapp-rhui-azure-sap",
+                },
+                {
+                    "src_pkg": "rhui-azure-rhel8-sapapps",
+                    "leapp_pkg": "leapp-rhui-azure-sap",
+                },
+                {
+                    "src_pkg": "google-rhui-client-rhel8",
+                    "leapp_pkg": "leapp-rhui-google",
+                },
+                {
+                    "src_pkg": "google-rhui-client-rhel8-sap",
+                    "leapp_pkg": "leapp-rhui-google-sap",
+                },
+            ]
+            rhui_pkgs = setup_leapp(leapp_install_command, rhel_8_rhui_packages)
 
         use_no_rhsm = should_use_no_rhsm_check(len(rhui_pkgs) > 1, preupgrade_command)
         if use_no_rhsm:
             print("Installing leapp package corresponding to installed rhui packages")
             for pkg in rhui_pkgs:
                 install_pkg = pkg["leapp_pkg"]
-                output, returncode = run_subprocess(
+                install_output, returncode = run_subprocess(
                     ["yum", "install", "-y", install_pkg]
                 )
                 if returncode:
-                    print("Installation of %s failed. \n%s" % (install_pkg, output))
+                    print(
+                        "Installation of %s failed. \n%s"
+                        % (install_pkg, install_output)
+                    )
                     raise ProcessError(
                         message="Installation of %s (coresponding pkg to '%s') failed with exit code %s."
                         % (install_pkg, pkg, returncode)
@@ -331,8 +328,8 @@ def main():
     except Exception as exception:
         output = OutputCollector(status="ERROR", report=str(exception))
     finally:
-        print("Pre-conversin successfully executed.")
-        parse_and_output_results(output)
+        print("Pre-upgrade successfully executed.")
+        parse_results(output)
         print("### JSON START ###")
         print(json.dumps(output.to_dict(), indent=4))
         print("### JSON END ###")
