@@ -4,6 +4,47 @@ import subprocess
 import sys
 
 
+# Both classes taken from:
+# https://github.com/oamg/convert2rhel-worker-scripts/blob/main/scripts/preconversion_assessment_script.py
+class ProcessError(Exception):
+    """Custom exception to report errors during setup and run of leapp"""
+
+    def __init__(self, message):
+        super(ProcessError, self).__init__(message)
+        self.message = message
+
+
+class OutputCollector(object):
+    """Wrapper class for script expected stdout"""
+
+    def __init__(self, status="", message="", report="", entries=None):
+        self.status = status
+        self.message = message
+        self.report = report
+        self.tasks_format_version = "1.0"
+        self.tasks_format_id = "oamg-format"
+        self.entries = entries
+        self.report_json = None
+
+    def to_dict(self):
+        # If we have entries, then we change report_json to be a dictionary
+        # with the needed values, otherwise, we leave it as `None` to be
+        # transformed to `null` in json.
+        if self.entries:
+            self.report_json = {
+                "tasks_format_version": self.tasks_format_version,
+                "tasks_format_id": self.tasks_format_id,
+                "entries": self.entries,
+            }
+
+        return {
+            "status": self.status,
+            "message": self.message,
+            "report": self.report,
+            "report_json": self.report_json,
+        }
+
+
 def get_rhel_version():
     """Currently we execute the task only for RHEL 7 or 8"""
     print("Checking OS distribution and version ID ...")
@@ -18,7 +59,7 @@ def get_rhel_version():
                     version_id = line.split("=")[1].strip().strip('"')
             return distribution_id, version_id
     except IOError:
-        pass
+        print("Couldn't read /etc/os-release")
     return None, None
 
 
@@ -73,7 +114,7 @@ def check_if_package_installed(pkg_name):
 
 def do_rhel7_specific_tasks():
     print("Installing leapp ...")
-    output, return_code = run_subprocess(
+    output, returncode = run_subprocess(
         [
             "yum",
             "install",
@@ -82,7 +123,14 @@ def do_rhel7_specific_tasks():
             "--enablerepo=rhel-7-server-extras-rpms",
         ]
     )
-    # TODO: Handle error, should we print the output?
+    if returncode:
+        print(
+            "Installation of leapp failed with code '%s' and output: %s\n"
+            % (returncode, output)
+        )
+        raise ProcessError(
+            message="Installation of leapp failed with code '%s'." % returncode
+        )
 
     print("Check installed rhui packages for RHEL 7 ...")
     rhel_7_rhui_packages = [
@@ -115,8 +163,15 @@ def do_rhel7_specific_tasks():
 
 def do_rhel8_specific_tasks():
     print("Installing leapp ...")
-    output, return_code = run_subprocess(["dnf", "install", "leapp-upgrade", "-y"])
-    # TODO: Handle error, should we print the output?
+    output, returncode = run_subprocess(["dnf", "install", "leapp-upgrade", "-y"])
+    if returncode:
+        print(
+            "Installation of leapp failed with code '%s' and output: %s\n"
+            % (returncode, output)
+        )
+        raise ProcessError(
+            message="Installation of leapp failed with code '%s'." % returncode
+        )
 
     print("Check installed rhui packages for RHEL 8 ...")
     rhel_8_rhui_packages = [
@@ -135,7 +190,7 @@ def do_rhel8_specific_tasks():
             "leapp_pkg": "leapp-rhui-google-sap",
         },
     ]
-    rhui_installed = False
+
     for pkg in rhel_8_rhui_packages:
         if check_if_package_installed(pkg["src_pkg"]):
             pkg["installed"] = True
@@ -144,10 +199,9 @@ def do_rhel8_specific_tasks():
 
 def should_use_no_rhsm_check(rhui_installed, command):
     print("Checking if subscription manager and repositories are available ...")
-    output, rhsm_installed_check = run_subprocess(["which", "subscription-manager"])
-    rhsm_installed = rhsm_installed_check == 0
     rhsm_repo_check_fail = True
-    if rhsm_installed:
+    _, rhsm_installed_check = run_subprocess(["which", "subscription-manager"])
+    if rhsm_installed_check == 0:
         rhsm_repo_check, _ = run_subprocess(
             ["subscription-manager", "repos", "--list-enabled"]
         )
@@ -178,10 +232,18 @@ def remove_previous_reports():
 
 def execute_preupgrade(command):
     print("Executing preupgrade ...")
-    return run_subprocess(command)
+    _, _ = run_subprocess(command)
+
+    # NOTE: we do not care about returncode because non-null always means actor error (or leapp error)
+    # if returncode:
+    #     print(
+    #         "The process leapp exited with code '%s' and output: %s\n"
+    #         % (returncode, output)
+    #     )
+    #     raise ProcessError(message="Leapp exited with code '%s'." % returncode)
 
 
-def parse_and_output_results():
+def parse_and_output_results(output):
     print("Processing preupgrade results ...")
 
     json_report_path = "/var/log/leapp/leapp-report.json"
@@ -194,7 +256,7 @@ def parse_and_output_results():
         with open(json_report_path, mode="r") as handler:
             report_json = json.load(handler)
 
-        # FIXME: with newer schema we will need to parse groups instead of flags
+        # NOTE: with newer schema we will need to parse groups instead of flags
         report_entries = report_json.get("entries", [])
         inhibitor_count = len(
             [entry for entry in report_entries if "inhibitor" in entry.get("flags")]
@@ -205,28 +267,24 @@ def parse_and_output_results():
         )
         alert = inhibitor_count > 0
 
+    output.report_json = report_json
+    output.alert = alert
+    output.message = message
+
     print("Reading TXT report")
     text_report_path = "/var/log/leapp/leapp-report.txt"
     report_txt = "Not found"
     if os.path.exists(text_report_path):
         with open(json_report_path, mode="r") as handler:
-            report_json = handler.read()
+            report_txt = handler.read()
 
-    print("Printing result to stdout")
-    results = {
-        "report_json": report_json,
-        "report": report_txt,
-        "message": message,
-        "alert": alert,
-    }
-    print("### JSON START ###")
-    print(json.dumps(results, indent=4))
-    print("### JSON END ###")
+    output.report = report_txt
 
 
 def call_insights_client():
     print("Calling insight-client in background for immediate data collection.")
-    return run_subprocess(["insights-client"], wait=False)
+    run_subprocess(["insights-client"], wait=False)
+    # NOTE: we do not care about returncode or output because we are not waiting for process to finish
 
 
 def main():
@@ -235,6 +293,8 @@ def main():
     if dist != "rhel" or exit_for_non_eligible_releases(version):
         print('Exiting because distribution="%s" and version="%s"' % (dist, version))
         sys.exit(1)
+
+    output = OutputCollector()
 
     try:
         # Init variables
@@ -247,28 +307,36 @@ def main():
         elif version.startswith("8"):
             rhui_pkgs = do_rhel8_specific_tasks()
         else:
-            print("Exiting, unsupported release", version)
-            sys.exit(1)
+            raise ProcessError(message="Exiting, unsupported RHEL release %s" % version)
 
         use_no_rhsm = should_use_no_rhsm_check(len(rhui_pkgs) > 1, preupgrade_command)
         if use_no_rhsm:
             print("Installing leapp package corresponding to installed rhui packages")
             for pkg in rhui_pkgs:
-                run_subprocess(["yum", "install", "-y", pkg["leapp_pkg"]])
+                install_pkg = pkg["leapp_pkg"]
+                output, returncode = run_subprocess(
+                    ["yum", "install", "-y", install_pkg]
+                )
+                if returncode:
+                    print("Installation of %s failed. \n%s" % (install_pkg, output))
+                    raise ProcessError(
+                        message="Installation of %s (coresponding pkg to '%s') failed with exit code %s."
+                        % (install_pkg, pkg, returncode)
+                    )
 
         remove_previous_reports()
-        output, return_code = execute_preupgrade(preupgrade_command)
-        # TODO: Do something with output and return code?
-
-        print("Pre-conversin successfully executed.")
-        parse_and_output_results()
-        output, return_code = call_insights_client()
-        print(output)
-        print(return_code)
+        execute_preupgrade(preupgrade_command)
+    except ProcessError as exception:
+        output = OutputCollector(status="ERROR", report=exception.message)
     except Exception as exception:
-        # FIXME: improve this - maybe some general custom exception for errors in all functions
-        print("Error occured, exiting ...")
-        print(str(exception))
+        output = OutputCollector(status="ERROR", report=str(exception))
+    finally:
+        print("Pre-conversin successfully executed.")
+        parse_and_output_results(output)
+        print("### JSON START ###")
+        print(json.dumps(output.to_dict(), indent=4))
+        print("### JSON END ###")
+        call_insights_client()
 
 
 if __name__ == "__main__":
