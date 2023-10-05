@@ -3,6 +3,10 @@ import os
 import subprocess
 
 
+JSON_REPORT_PATH = "/var/log/leapp/leapp-report.json"
+TXT_REPORT_PATH = "/var/log/leapp/leapp-report.txt"
+
+
 # Both classes taken from:
 # https://github.com/oamg/convert2rhel-worker-scripts/blob/main/scripts/preconversion_assessment_script.py
 class ProcessError(Exception):
@@ -156,13 +160,11 @@ def should_use_no_rhsm_check(rhui_installed, command):
 def remove_previous_reports():
     print("Removing previous preupgrade reports at /var/log/leapp/leapp-report.* ...")
 
-    json_report_path = "/var/log/leapp/leapp-report.json"
-    if os.path.exists(json_report_path):
-        os.remove(json_report_path)
+    if os.path.exists(JSON_REPORT_PATH):
+        os.remove(JSON_REPORT_PATH)
 
-    text_report_path = "/var/log/leapp/leapp-report.txt"
-    if os.path.exists(text_report_path):
-        os.remove(text_report_path)
+    if os.path.exists(TXT_REPORT_PATH):
+        os.remove(TXT_REPORT_PATH)
 
 
 def execute_preupgrade(command):
@@ -181,14 +183,13 @@ def execute_preupgrade(command):
 def parse_results(output):
     print("Processing preupgrade results ...")
 
-    json_report_path = "/var/log/leapp/leapp-report.json"
     report_json = "Not found"
-    message = "Can't open json report at " + json_report_path
+    message = "Can't open json report at " + JSON_REPORT_PATH
     alert = True
 
     print("Reading JSON report")
-    if os.path.exists(json_report_path):
-        with open(json_report_path, mode="r") as handler:
+    if os.path.exists(JSON_REPORT_PATH):
+        with open(JSON_REPORT_PATH, mode="r") as handler:
             report_json = json.load(handler)
 
         # NOTE: with newer schema we will need to parse groups instead of flags
@@ -207,10 +208,9 @@ def parse_results(output):
     output.message = message
 
     print("Reading TXT report")
-    text_report_path = "/var/log/leapp/leapp-report.txt"
     report_txt = "Not found"
-    if os.path.exists(text_report_path):
-        with open(json_report_path, mode="r") as handler:
+    if os.path.exists(TXT_REPORT_PATH):
+        with open(JSON_REPORT_PATH, mode="r") as handler:
             report_txt = handler.read()
 
     output.report = report_txt
