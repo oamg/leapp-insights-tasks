@@ -60,10 +60,9 @@ def get_rhel_version():
                     distribution_id = line.split("=")[1].strip().strip('"')
                 elif line.startswith("VERSION_ID="):
                     version_id = line.split("=")[1].strip().strip('"')
-            return distribution_id, version_id
     except IOError:
         print("Couldn't read /etc/os-release")
-    return None, None
+    return distribution_id, version_id
 
 
 def is_non_eligible_releases(release):
