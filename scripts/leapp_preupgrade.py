@@ -323,12 +323,12 @@ def main():
 
         remove_previous_reports()
         execute_preupgrade(preupgrade_command)
+        print("Pre-upgrade successfully executed.")
     except ProcessError as exception:
         output = OutputCollector(status="ERROR", report=exception.message)
     except Exception as exception:
         output = OutputCollector(status="ERROR", report=str(exception))
     finally:
-        print("Pre-upgrade successfully executed.")
         parse_results(output)
         print("### JSON START ###")
         print(json.dumps(output.to_dict(), indent=4))
