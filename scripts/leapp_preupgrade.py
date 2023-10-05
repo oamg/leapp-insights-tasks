@@ -66,7 +66,7 @@ def get_rhel_version():
     return None, None
 
 
-def exit_for_non_eligible_releases(release):
+def is_non_eligible_releases(release):
     print("Exit if not RHEL 7 or RHEL 8 ...")
     major_version, _ = release.split(".") if release is not None else (None, None)
     return release is None or major_version not in ["7", "8"]
@@ -225,7 +225,7 @@ def call_insights_client():
 def main():
     # Exit if not RHEL 7 or 8
     dist, version = get_rhel_version()
-    if dist != "rhel" or exit_for_non_eligible_releases(version):
+    if dist != "rhel" or is_non_eligible_releases(version):
         raise ProcessError(
             message='Exiting because distribution="%s" and version="%s"'
             % (dist, version)
