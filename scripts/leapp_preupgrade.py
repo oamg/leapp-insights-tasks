@@ -157,6 +157,21 @@ def should_use_no_rhsm_check(rhui_installed, command):
     return False
 
 
+def install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs):
+    print("Installing leapp package corresponding to installed rhui packages")
+    for pkg in rhui_pkgs:
+        install_pkg = pkg["leapp_pkg"]
+        install_output, returncode = run_subprocess(
+            ["yum", "install", "-y", install_pkg]
+        )
+        if returncode:
+            print("Installation of %s failed. \n%s" % (install_pkg, install_output))
+            raise ProcessError(
+                message="Installation of %s (coresponding pkg to '%s') failed with exit code %s."
+                % (install_pkg, pkg, returncode)
+            )
+
+
 def remove_previous_reports():
     print("Removing previous preupgrade reports at /var/log/leapp/leapp-report.* ...")
 
@@ -304,22 +319,9 @@ def main():
             rhui_pkgs = setup_leapp(leapp_install_command, rhel_8_rhui_packages)
 
         use_no_rhsm = should_use_no_rhsm_check(len(rhui_pkgs) > 1, preupgrade_command)
+
         if use_no_rhsm:
-            print("Installing leapp package corresponding to installed rhui packages")
-            for pkg in rhui_pkgs:
-                install_pkg = pkg["leapp_pkg"]
-                install_output, returncode = run_subprocess(
-                    ["yum", "install", "-y", install_pkg]
-                )
-                if returncode:
-                    print(
-                        "Installation of %s failed. \n%s"
-                        % (install_pkg, install_output)
-                    )
-                    raise ProcessError(
-                        message="Installation of %s (coresponding pkg to '%s') failed with exit code %s."
-                        % (install_pkg, pkg, returncode)
-                    )
+            install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs)
 
         remove_previous_reports()
         execute_preupgrade(preupgrade_command)
