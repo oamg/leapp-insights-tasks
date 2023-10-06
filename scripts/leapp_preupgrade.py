@@ -6,6 +6,20 @@ import subprocess
 JSON_REPORT_PATH = "/var/log/leapp/leapp-report.json"
 TXT_REPORT_PATH = "/var/log/leapp/leapp-report.txt"
 
+# Based on https://github.com/oamg/leapp/blob/master/report-schema-v110.json#L211
+STATUS_CODE = {
+    "high": 3,
+    "medium": 2,
+    "low": 1,
+    "info": 0,
+}
+STATUS_CODE_NAME_MAP = {
+    "high": "ERROR",
+    "medium": "WARNING",
+    "low": "WARNING",
+    "info": "INFO",
+}
+
 
 # Both classes taken from:
 # https://github.com/oamg/convert2rhel-worker-scripts/blob/main/scripts/preconversion_assessment_script.py
@@ -194,12 +208,29 @@ def execute_preupgrade(command):
     #     raise ProcessError(message="Leapp exited with code '%s'." % returncode)
 
 
+def find_highest_report_level(entries):
+    """
+    Gather status codes from entries.
+    """
+    print("Collecting and combining report status.")
+    action_level_combined = []
+    for value in entries:
+        action_level_combined.append(value["severity"])
+
+    valid_action_levels = [
+        level for level in action_level_combined if level in STATUS_CODE
+    ]
+    valid_action_levels.sort(key=lambda status: STATUS_CODE[status], reverse=True)
+    return STATUS_CODE_NAME_MAP[valid_action_levels[0]]
+
+
 def parse_results(output):
     print("Processing preupgrade results ...")
 
     report_json = "Not found"
     message = "Can't open json report at " + JSON_REPORT_PATH
     alert = True
+    status = "ERROR"
 
     print("Reading JSON report")
     if os.path.exists(JSON_REPORT_PATH):
@@ -216,7 +247,13 @@ def parse_results(output):
             len(report_entries),
         )
         alert = inhibitor_count > 0
+        status = (
+            find_highest_report_level(report_entries)
+            if len(report_entries) > 0
+            else "SUCCESS"
+        )
 
+    output.status = status
     output.report_json = report_json
     output.alert = alert
     output.message = message

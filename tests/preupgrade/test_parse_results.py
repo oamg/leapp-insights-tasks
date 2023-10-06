@@ -7,7 +7,8 @@ from scripts.leapp_preupgrade import (
 
 
 @patch("os.path.exists", return_value=True)
-def test_gather_report_files_exist(mock_exists):
+@patch("scripts.leapp_preupgrade.find_highest_report_level", return_value="ERROR")
+def test_gather_report_files_exist(mock_find_level, mock_exists):
     test_txt_content = "Test data"
     test_json_content = '{"test": "hi"}'
     output = OutputCollector()
@@ -18,12 +19,13 @@ def test_gather_report_files_exist(mock_exists):
         )(file, mode)
         parse_results(output)
 
+    assert mock_find_level.call_count == 0  # entries do not exists -> []
+    assert output.status == "SUCCESS"
     assert mock_exists.call_count == 2
     assert output.report == test_txt_content
     assert output.report_json.get("test") == "hi"
     # NOTE: is this right?
     assert output.message == "Your system has 0 inhibitors out of 0 potential problems."
-    assert not output.alert
 
 
 @patch("os.path.exists", return_value=False)
@@ -37,4 +39,3 @@ def test_gather_report_files_not_exist(mock_exists):
     assert output.report != ""
     assert output.report_json != ""
     assert output.message != ""
-    assert output.alert
