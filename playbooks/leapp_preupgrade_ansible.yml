@@ -1,0 +1,196 @@
+- name: task for leapp pre-upgrade assessment
+  hosts: localhost
+  become: true
+  vars:
+    rhui_packages:
+      rhel7:
+        - src_pkg: rh-amazon-rhui-client
+          leapp_pkg: leapp-rhui-aws
+        - src_pkg: rh-amazon-rhui-client-sap-bundle
+          leapp_pkg: leapp-rhui-aws-sap-e4s
+        - src_pkg: rhui-azure-rhel7
+          leapp_pkg: leapp-rhui-azure
+        - src_pkg: rhui-azure-rhel7-base-sap-apps
+          leapp_pkg: leapp-rhui-azure-sap
+        - src_pkg: rhui-azure-rhel7-base-sap-ha
+          leapp_pkg: leapp-rhui-azure-sap
+        - src_pkg: google-rhui-client-rhel7
+          leapp_pkg: leapp-rhui-google
+        - src_pkg: google-rhui-client-rhel79-sap
+          leapp_pkg: leapp-rhui-google-sap
+      rhel8:
+        - src_pkg: rh-amazon-rhui-client
+          leapp_pkg: leapp-rhui-aws
+        - src_pkg: rh-amazon-rhui-client-sap-bundle-e4s
+          leapp_pkg: leapp-rhui-aws-sap-e4s
+        - src_pkg: rhui-azure-rhel8
+          leapp_pkg: leapp-rhui-azure
+        - src_pkg: rhui-azure-rhel8-eus
+          leapp_pkg: leapp-rhui-azure-eus
+        - src_pkg: rhui-azure-rhel8-sap-ha
+          leapp_pkg: leapp-rhui-azure-sap
+        - src_pkg: rhui-azure-rhel8-sapapps
+          leapp_pkg: leapp-rhui-azure-sap
+        - src_pkg: google-rhui-client-rhel8
+          leapp_pkg: leapp-rhui-google
+        - src_pkg: google-rhui-client-rhel8-sap
+          leapp_pkg: leapp-rhui-google-sap
+    preupgrade_command: '/usr/bin/leapp preupgrade --report-schema=1.1.0'
+    no_rhsm: false
+    insights_signature_exclude: /hosts,/vars/insights_signature
+    insights_signature: !!binary |
+      TFMwdExTMUNSVWRKVGlCUVIxQWdVMGxIVGtGVVZWSkZMUzB0TFMwS1ZtVnljMmx2YmpvZ1IyNTFV
+      RWNnZGpFS0NtbFJTV05DUVVGQ1EwRkJSMEpSU210elZrNUNRVUZ2U2tWTmRuYzFPRVFyYWpWd1Rs
+      ZzBjMUF2UVRKVWRFdDRkVUoyUW5WWlJDdENaa0p1Y2pSRlFsVUtaalkzYlcxcWR6aExSM1JsTjJ4
+      ak5VTkRVWGxDZDFSMlNFaGtlR2RDWTBSeUwyeFVaSFJMWkhGemFtODBURlUwYTFvdlRETjZiRXBt
+      ZGxWTVdFSkdiUXBIZUZwWFlUbDRXRU53TXpSNGJGUjBRMWhUUWtSUk1tcHZWRXBUTm5BMk9IQkhT
+      M2RTVldacFdIWmlNa0l3VDBoTFEwWXlkblJ2VW1RMGJGbG1keXRYQ2xRck1YSkthV3RJTTNVMWFH
+      aGxiMk5KYVdWVVVYUmtabkpoZUVreFF6QlBXbUlyVWxkVVVFNWxTRFpNYTI1Nk1HdDVSa3R5S3pK
+      SFRrUkZPVXd2TVZBS1UzSXJZWGhVWkU1VlpFUnJTMHBXVDBaeGNVcG1TMkU1VkhKd1ptSjBRV2hE
+      UWxaNEx5OVNRbVF4TVd0Vk1WaHlZMjAxV0ZkMk5VdzFlRXhIU25KdmF3cGFTakI2U2twdGEyVmph
+      M1p2UTNWc2F6SnNkVFZJYUVWcFJYUXJRM0Z6YzJKNVFXbFJjWGR1TTFkamNYZGtTRWh2WkRWdWVs
+      QkVURWhwUlRCTk5tcEdDa1ZuWkdaRFN6UnJhMGxGSzNaQlRXUnlSRk5vYTFCWFpVdE1NVEpqVTBO
+      Q1l6STRVbkF5TlVNNWFUZFhkRmROVWtsdVdTdEdRelJzYm1waGVHZDBlVE1LTUdWUVpqYzNaVk5Y
+      U0ZaVGQwRm9VVTl3TVdoaFluZDFSbmxsYlZWdWMxUlpRV1JQVXpWRVUyTlNTVTFMVVZaeVJHWldi
+      RTU0TlZkUVprbGtaMDVDTndwaE5IQXJTa2QwYlVacFZtSk1ZM2d2ZDNBelVVWXlWRzVYV1dkMk1G
+      Qktka1J6VFZVd1VsUnVWbFJrWjBWc1YxY3dSMVkyVjBGS1YwTmhSU3N4YkVSM0NrTjVOVk5sVjJ0
+      cmF6TnlkbTF6TlhWd1VVdGpaMWxsZUVaaVpXeHhiakJ0TWpkUEsyOXlTaXRZSzFsak5VVlFkMGgy
+      VG5FNE9VNVRjR1ZxVVROUVdVd0tiMlJOV0hWV1pqVjFTRFIxU3pseU1YTktMelpETDAxaFRHSmpM
+      MnhxTmpReWFqVkdNbkk1VFdWcWEwMHlTRFZUV2xsSlEwRXdiR3h3VTFsNmRuSTNRUXBSTmpoRmFr
+      bHNjbk42UTFOWFVrWmxWM2QyY1FvOVpFaHhZUW90TFMwdExVVk9SQ0JRUjFBZ1UwbEhUa0ZVVlZK
+      RkxTMHRMUzBL
+  tasks:
+    - name: Exit for non-eligible releases
+      ansible.builtin.meta: end_host
+      when:
+        - ansible_distribution != 'Red Hat Enterprise Linux'
+        - ansible_distribution_major_version <= '6'
+        - ansible_distribution_major_version >= '9'
+
+    - name: Gather package facts
+      package_facts:
+        manager: auto
+
+    - name: Set rhui_packages_found to empty list
+      set_fact:
+        rhui_packages_found: []
+
+    - name: Do RHEL7 specific tasks
+      block:
+        - name: Install Leapp from RHEL 7 Extras
+          yum:
+            name: leapp-upgrade
+            state: present
+            enablerepo: rhel-7-server-extras-rpms
+        - name: Determine if any RHUI packages are installed on RHEL 7
+          set_fact:
+            rhui_packages_found: "{{ rhui_packages_found + [item] }}"
+          loop: "{{ rhui_packages.rhel7 }}"
+          when: item.src_pkg in ansible_facts.packages.keys()
+      when: ansible_distribution_major_version == '7'
+
+    - name: Do RHEL8 specific tasks
+      block:
+        - name: Install Leapp on RHEL 8
+          dnf:
+            name: leapp-upgrade
+            state: present
+        - name: Determine if any RHUI packages are installed on RHEL 8
+          set_fact:
+            rhui_packages_found: "{{ rhui_packages_found + [item] }}"
+          loop: "{{ rhui_packages.rhel8 }}"
+          when: item.src_pkg in ansible_facts.packages.keys()
+      when: ansible_distribution_major_version == '8'
+
+    - name: Determine --no-rhsm flag usage and do corresponding steps when rhsm cannot be used
+      block:
+        - name: Check if subscription-manager is installed
+          command: which subscription-manager
+          changed_when: false
+          failed_when: false
+          register: rhsm_installed_check
+
+        - name: Check if system has repositories available
+          ansible.builtin.command: "subscription-manager repos --list-enabled"
+          register: rhsm_repo_check
+          changed_when: false
+          failed_when: false
+          when: rhsm_installed_check is success
+
+        - name: Set rhsm_repo_check_fail if there are no available repositories through RHSM
+          set_fact:
+            rhsm_repo_check_fail: true
+          when:
+            - >
+              'This system has no repositories available through subscriptions.' in rhsm_repo_check.stdout_lines or
+              'Repositories disabled by configuration.' in rhsm_repo_check.stdout_lines
+
+        - name: Set no_rhsm flag to true if RHUI package are found AND (there are no available repositories OR subscription-manager is not installed)
+          set_fact:
+            no_rhsm: true
+          when:
+            - rhui_packages_found | length > 0
+            - rhsm_installed_check is failed or rhsm_repo_check_fail is defined
+
+        - name: Add --no-rhsm switch to leapp preupgrade command if no_rhsm flag is true
+          set_fact:
+            preupgrade_command: "{{ preupgrade_command }} --no-rhsm"
+          when: no_rhsm == true
+
+        - name: Install corresponding leapp_pkg for installed RHUI packages if no_rhsm flag is true
+          yum:
+            name: "{{ item.leapp_pkg }}"
+            state: present
+          loop: "{{ rhui_packages_found }}"
+          when: no_rhsm == true
+
+    - name: Remove previous json report
+      ansible.builtin.file:
+        path: /var/log/leapp/leapp-report.json
+        state: absent
+
+    - name: Remove previous text report
+      ansible.builtin.file:
+        path: /var/log/leapp/leapp-report.txt
+        state: absent
+
+    - name: Execute leapp pre-upgrade
+      ansible.builtin.shell: "{{ preupgrade_command }} || true"
+      ignore_errors: true
+
+    - name: Process the findings of the pre-upgrade
+      block:
+        - name: Read json report
+          ansible.builtin.slurp:
+            src: '/var/log/leapp/leapp-report.json'
+          register: report_content_raw
+
+        - name: Read text report
+          ansible.builtin.slurp:
+            src: '/var/log/leapp/leapp-report.txt'
+          register: report_content_txt_raw
+
+        - name: Set report fact
+          ansible.builtin.set_fact:
+            report_content: "{{ report_content_raw.content | b64decode }}"
+
+        - name: Set inhibitor count
+          ansible.builtin.set_fact:
+            inhibitor_count: "{{ report_content.entries | selectattr('flags', 'defined') | selectattr('flags', 'contains', 'inhibitor') | list | length }}"
+
+        - name: Set result
+          ansible.builtin.set_fact:
+            task_results:
+              report_json: "{{ report_content }}"
+              report: "{{ report_content_txt_raw.content | b64decode }}"
+              message: "Your system has {{ inhibitor_count }} inhibitors out of {{report_content.entries | length}} potential problems."
+              alert: "{{ inhibitor_count | int > 0 }}"
+
+    - name: Start insights-client for immediate data collection of leapp-report
+      ansible.builtin.shell: insights-client >/dev/null 2>&1 &
+      async: 10
+      poll: 0
+
+    - name: Print Task Result
+      ansible.builtin.debug:
+        var: task_results

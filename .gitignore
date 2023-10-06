@@ -12,3 +12,5 @@ pre-commit
 
 *.log
 htmlcov/
+
+.vscode/*
