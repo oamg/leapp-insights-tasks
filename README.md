@@ -16,7 +16,7 @@ Structure of repository is following:
 │   └── preupgrade_script.py
 ├── playbooks # All available ansible playbooks for leapp related tasks
 |   |   ...
-│   └── preupgrade_7_9.yaml
+│   └── leapp_preupgrade_ansible.yaml
 └── tests
     |   ...
     └── preuprade  # Unit tests for given script
@@ -37,9 +37,11 @@ Red Hat Insights Tasks are always distributed to registered systems as signed ya
 So in short [playbooks folder](playbooks) contains true signed ansible playbooks and also files from [scripts folder](scripts) wrapped in signed yaml envelope.
 
 
-### [WIP] Preupgrade
+### Preupgrade
 
-TBA
+You can find official leapp_preupgrade_ansible.yaml for rhc-worker-playbook in playbooks folder. This playbook is officially signed and used on Red Hat Insights.
+
+For rhc-worker-script we have only raw script leapp_preupgrade.py, signed version wrapped in yaml is still in development.
 
 ### [WIP] Upgrade
 
