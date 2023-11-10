@@ -5,6 +5,7 @@ import subprocess
 
 JSON_REPORT_PATH = "/var/log/leapp/leapp-report.json"
 TXT_REPORT_PATH = "/var/log/leapp/leapp-report.txt"
+REBOOT_GUIDANCE_MESSAGE = "A reboot is required to continue. Please reboot your system."
 
 # Based on https://github.com/oamg/leapp/blob/master/report-schema-v110.json#L211
 STATUS_CODE = {
@@ -80,9 +81,11 @@ def get_rhel_version():
 
 
 def is_non_eligible_releases(release):
-    print("Exit if not RHEL 7.9") # TODO: fill with current data, idk what is the current version
+    print("Exit if not RHEL 7.9 or 8.4")
     major_version, minor = release.split(".") if release is not None else (None, None)
-    return release is None or major_version != "7" or minor != "9"
+    version_str = major_version + "." + minor
+    eligible_releases = ["7.9", "8.4"]
+    return release is None or version_str not in eligible_releases
 
 
 # Code taken from
@@ -197,15 +200,9 @@ def remove_previous_reports():
 
 def execute_upgrade(command):
     print("Executing upgrade ...")
-    _, _ = run_subprocess(command)
+    output, _ = run_subprocess(command)
 
-    # NOTE: we do not care about returncode because non-null always means actor error (or leapp error)
-    # if returncode:
-    #     print(
-    #         "The process leapp exited with code '%s' and output: %s\n"
-    #         % (returncode, output)
-    #     )
-    #     raise ProcessError(message="Leapp exited with code '%s'." % returncode)
+    return output
 
 
 def find_highest_report_level(entries):
@@ -273,8 +270,12 @@ def call_insights_client():
     # NOTE: we do not care about returncode or output because we are not waiting for process to finish
 
 
+def reboot_system():
+    print("Rebooting system in 1 minute.")
+    run_subprocess(["shutdown", "-r", "1"], wait=False)
+
+
 def main():
-    # Exit if not RHEL 7 or 8
     dist, version = get_rhel_version()
     if dist != "rhel" or is_non_eligible_releases(version):
         raise ProcessError(
@@ -283,7 +284,7 @@ def main():
         )
 
     output = OutputCollector()
-
+    leapp_upgrade_output = None
     try:
         # Init variables
         upgrade_command = ["/usr/bin/leapp", "upgrade"]
@@ -360,7 +361,7 @@ def main():
             install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs)
 
         remove_previous_reports()
-        execute_upgrade(upgrade_command)
+        leapp_upgrade_output = execute_upgrade(upgrade_command)
         print("Upgrade successfully executed.")
         parse_results(output)
     except ProcessError as exception:
@@ -372,6 +373,9 @@ def main():
         print(json.dumps(output.to_dict(), indent=4))
         print("### JSON END ###")
         call_insights_client()
+
+        if leapp_upgrade_output and REBOOT_GUIDANCE_MESSAGE in leapp_upgrade_output:
+            reboot_system()
 
 
 if __name__ == "__main__":

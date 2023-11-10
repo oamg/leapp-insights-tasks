@@ -43,15 +43,18 @@ You can find official leapp_preupgrade_ansible.yaml for rhc-worker-playbook in p
 
 For rhc-worker-script we have only raw script leapp_preupgrade.py, signed version wrapped in yaml is still in development.
 
-### [WIP] Upgrade
+### Upgrade
 
-TBA
+**TBD** for rhc-worker-playbook.
+
+For rhc-worker-script we have only raw script leapp_upgrade.py, signed version wrapped in yaml is still in development.
 
 ## Local Development & Contributing
 
 ### Requirements
 
-* `virtualenv` - to run tests locally
+* `python2` - to run tests locally
+* `virtualenv` - `versions < 20.22.0` to run tests locally
 * `pre-commit` - to run checks before each commit, see hook in [.pre-commit-config.yml](./.pre-commit-config.yaml)
 * `make` - to use handy commands
 
