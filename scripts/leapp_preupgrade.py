@@ -24,7 +24,7 @@ STATUS_CODE_NAME_MAP = {
 # Both classes taken from:
 # https://github.com/oamg/convert2rhel-worker-scripts/blob/main/scripts/preconversion_assessment_script.py
 class ProcessError(Exception):
-    """Custom exception to report errors during setup and run of conver2rhel"""
+    """Custom exception to report errors during setup and run of leapp"""
 
     def __init__(self, message, report):
         super(ProcessError, self).__init__(report)
@@ -233,8 +233,8 @@ def setup_leapp(version):
 def should_use_no_rhsm_check(rhui_installed, command):
     print("Checking if subscription manager and repositories are available ...")
     rhsm_repo_check_fail = True
-    _, rhsm_installed_check = run_subprocess(["which", "subscription-manager"])
-    if rhsm_installed_check == 0:
+    rhsm_installed_check = _check_if_package_installed("subscription-manager")
+    if rhsm_installed_check:
         rhsm_repo_check, _ = run_subprocess(
             ["/usr/sbin/subscription-manager", "repos", "--list-enabled"]
         )
@@ -348,10 +348,19 @@ def parse_results(output):
     output.report = report_txt
 
 
-def call_insights_client():
-    print("Calling insight-client in background for immediate data collection.")
-    run_subprocess(["/usr/bin/insights-client"], wait=False)
-    # NOTE: we do not care about returncode or output because we are not waiting for process to finish
+def update_insights_inventory():
+    """Call insights-client to update insights inventory."""
+    print("Updating system status in Red Hat Insights.")
+    output, returncode = run_subprocess(cmd=["/usr/bin/insights-client"])
+
+    if returncode:
+        raise ProcessError(
+            message="Failed to update Insights Inventory by registering the system again. See output the following output: %s"
+            % output,
+            report="insights-client execution exited with code '%s'." % returncode,
+        )
+
+    print("System registered with insights-client successfully.")
 
 
 def main():
@@ -376,8 +385,9 @@ def main():
 
         remove_previous_reports()
         execute_preupgrade(preupgrade_command)
-        print("Pre-upgrade successfully executed.")
         parse_results(output)
+        update_insights_inventory()
+        print("Pre-upgrade successfully executed.")
     except ProcessError as exception:
         print(exception.report)
         output = OutputCollector(
@@ -400,7 +410,6 @@ def main():
         print("### JSON START ###")
         print(json.dumps(output.to_dict(), indent=4))
         print("### JSON END ###")
-        call_insights_client()
 
 
 if __name__ == "__main__":

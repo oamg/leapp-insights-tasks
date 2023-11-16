@@ -5,11 +5,11 @@ from scripts.leapp_preupgrade import main, OutputCollector
 @patch("scripts.leapp_preupgrade.get_rhel_version")
 @patch("scripts.leapp_preupgrade.is_non_eligible_releases")
 @patch("scripts.leapp_preupgrade.setup_leapp")
-@patch("scripts.leapp_preupgrade.call_insights_client")
+@patch("scripts.leapp_preupgrade.update_insights_inventory")
 @patch("scripts.leapp_preupgrade.OutputCollector")
 def test_main_non_eligible_release(
     mock_output_collector,
-    mock_call_insights_client,
+    mock_update_insights_inventory,
     mock_setup_leapp,
     mock_is_non_eligible_releases,
     mock_get_rhel_version,
@@ -24,7 +24,7 @@ def test_main_non_eligible_release(
     mock_is_non_eligible_releases.assert_called_once()
     mock_output_collector.assert_called_once()
     mock_setup_leapp.assert_not_called()
-    mock_call_insights_client.assert_called_once()
+    mock_update_insights_inventory.assert_not_called()
 
 
 @patch("scripts.leapp_preupgrade.parse_results")
@@ -35,11 +35,11 @@ def test_main_non_eligible_release(
 @patch("scripts.leapp_preupgrade.install_leapp_pkg_corresponding_to_installed_rhui")
 @patch("scripts.leapp_preupgrade.remove_previous_reports")
 @patch("scripts.leapp_preupgrade.execute_preupgrade")
-@patch("scripts.leapp_preupgrade.call_insights_client")
+@patch("scripts.leapp_preupgrade.update_insights_inventory")
 @patch("scripts.leapp_preupgrade.OutputCollector")
 def test_main_eligible_release(
     mock_output_collector,
-    mock_call_insights_client,
+    mock_update_insights_inventory,
     mock_execute_preupgrade,
     mock_remove_previous_reports,
     mock_should_use_no_rhsm_check,
@@ -63,4 +63,4 @@ def test_main_eligible_release(
     mock_remove_previous_reports.assert_called_once()
     mock_execute_preupgrade.assert_called_once()
     mock_parse_results.assert_called_once()
-    mock_call_insights_client.assert_called_once()
+    mock_update_insights_inventory.assert_called_once()
