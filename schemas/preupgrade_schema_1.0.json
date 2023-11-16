@@ -3,6 +3,12 @@
     "description": "Script is expected to set up Leapp and run pre-upgrade analysis. This schema defines the output format that is expected by Red Hat Insights Task UI.",
     "type": "object",
     "properties": {
+      "alert": {
+        "type": "boolean"
+      },
+      "error": {
+        "type": "boolean"
+      },
       "status": {
         "$ref": "#/$defs/status_codes"
       },
@@ -40,6 +46,8 @@
       }
     },
     "required": [
+      "alert",
+      "error",
       "status",
       "message",
       "report",

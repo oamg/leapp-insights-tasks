@@ -1,6 +1,6 @@
 import pytest
 from scripts.leapp_preupgrade import (
-    find_highest_report_level,
+    _find_highest_report_level,
 )
 
 
@@ -41,7 +41,7 @@ from scripts.leapp_preupgrade import (
 )
 def test_find_highest_report_level_expected(entries, expected):
     """Should be sorted descending from the highest status to the lower one."""
-    result = find_highest_report_level(entries)
+    result = _find_highest_report_level(entries)
     assert result == expected
 
 
@@ -53,5 +53,5 @@ def test_find_highest_report_level_unknown_status():
         {"severity": "medium"},
         {"severity": "foo"},
     ]
-    result = find_highest_report_level(action_results_test)
+    result = _find_highest_report_level(action_results_test)
     assert result == expected_output

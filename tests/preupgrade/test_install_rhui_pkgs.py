@@ -20,7 +20,7 @@ def test_install_leapp_pkg_to_installed_rhui(mock_run_subprocess):
 
 
 @patch("scripts.leapp_preupgrade.run_subprocess")
-def test_install_leapp_pkge_to_installed_rhui_error(
+def test_install_leapp_pkg_to_installed_rhui_error(
     mock_run_subprocess,
 ):
     rhui_pkgs = [{"leapp_pkg": "pkg1"}, {"leapp_pkg": "pkg2"}]
@@ -34,5 +34,5 @@ def test_install_leapp_pkge_to_installed_rhui_error(
 
     assert (
         str(exception.value)
-        == "Installation of pkg1 (coresponding pkg to '{'leapp_pkg': 'pkg1'}') failed with exit code 1."
+        == "Installation of pkg1 (coresponding pkg to '{'leapp_pkg': 'pkg1'}') failed with exit code 1 and output: Installation failed."
     )
