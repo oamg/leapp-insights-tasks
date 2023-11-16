@@ -10,13 +10,13 @@ def test_setup_leapp_success(mock_check_if_package_installed, mock_run_subproces
     mock_check_if_package_installed.return_value = True
 
     rhel7_command = [
-        "yum",
+        "/usr/bin/yum",
         "install",
         "leapp-upgrade",
         "-y",
         "--enablerepo=rhel-7-server-extras-rpms",
     ]
-    rhel8_command = ["dnf", "install", "leapp-upgrade", "-y"]
+    rhel8_command = ["/usr/bin/dnf", "install", "leapp-upgrade", "-y"]
 
     for version, command in [("7", rhel7_command), ("8", rhel8_command)]:
         result = setup_leapp(version)
@@ -31,13 +31,13 @@ def test_setup_leapp_failure(mock_check_if_package_installed, mock_run_subproces
     mock_check_if_package_installed.return_value = True
 
     rhel7_command = [
-        "yum",
+        "/usr/bin/yum",
         "install",
         "leapp-upgrade",
         "-y",
         "--enablerepo=rhel-7-server-extras-rpms",
     ]
-    rhel8_command = ["dnf", "install", "leapp-upgrade", "-y"]
+    rhel8_command = ["/usr/bin/dnf", "install", "leapp-upgrade", "-y"]
 
     for version, command in [("7", rhel7_command), ("8", rhel8_command)]:
         with pytest.raises(ProcessError) as e_info:

@@ -15,7 +15,7 @@ def test_install_leapp_pkg_to_installed_rhui(mock_run_subprocess):
     install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs)
 
     for pkg in rhui_pkgs:
-        expected_command = ["yum", "install", "-y", pkg["leapp_pkg"]]
+        expected_command = ["/usr/bin/yum", "install", "-y", pkg["leapp_pkg"]]
         assert call(expected_command) in mock_run_subprocess.call_args_list
 
 
@@ -29,7 +29,7 @@ def test_install_leapp_pkg_to_installed_rhui_error(
     with pytest.raises(ProcessError) as exception:
         install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs)
 
-    expected_command = ["yum", "install", "-y", "pkg1"]
+    expected_command = ["/usr/bin/yum", "install", "-y", "pkg1"]
     mock_run_subprocess.assert_called_once_with(expected_command)
 
     assert (

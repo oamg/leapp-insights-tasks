@@ -142,14 +142,14 @@ def run_subprocess(cmd, print_cmd=True, env=None, wait=True):
 
 
 def _check_if_package_installed(pkg_name):
-    _, return_code = run_subprocess(["rpm", "-q", pkg_name])
+    _, return_code = run_subprocess(["/usr/bin/rpm", "-q", pkg_name])
     return return_code == 0
 
 
 def _get_leapp_command_and_packages(version):
     if version.startswith("7"):
         leapp_install_command = [
-            "yum",
+            "/usr/bin/yum",
             "install",
             "leapp-upgrade",
             "-y",
@@ -180,7 +180,7 @@ def _get_leapp_command_and_packages(version):
             },
         ]
     if version.startswith("8"):
-        leapp_install_command = ["dnf", "install", "leapp-upgrade", "-y"]
+        leapp_install_command = ["/usr/bin/dnf", "install", "leapp-upgrade", "-y"]
         rhui_packages = [
             {"src_pkg": "rh-amazon-rhui-client", "leapp_pkg": "leapp-rhui-aws"},
             {
@@ -236,7 +236,7 @@ def should_use_no_rhsm_check(rhui_installed, command):
     _, rhsm_installed_check = run_subprocess(["which", "subscription-manager"])
     if rhsm_installed_check == 0:
         rhsm_repo_check, _ = run_subprocess(
-            ["subscription-manager", "repos", "--list-enabled"]
+            ["/usr/sbin/subscription-manager", "repos", "--list-enabled"]
         )
         rhsm_repo_check_fail = (
             "This system has no repositories available through subscriptions."
@@ -256,7 +256,7 @@ def install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs):
     for pkg in rhui_pkgs:
         install_pkg = pkg["leapp_pkg"]
         install_output, returncode = run_subprocess(
-            ["yum", "install", "-y", install_pkg]
+            ["/usr/bin/yum", "install", "-y", install_pkg]
         )
         if returncode:
             raise ProcessError(
@@ -350,7 +350,7 @@ def parse_results(output):
 
 def call_insights_client():
     print("Calling insight-client in background for immediate data collection.")
-    run_subprocess(["insights-client"], wait=False)
+    run_subprocess(["/usr/bin/insights-client"], wait=False)
     # NOTE: we do not care about returncode or output because we are not waiting for process to finish
 
 
