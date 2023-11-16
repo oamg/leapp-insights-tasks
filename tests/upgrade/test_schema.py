@@ -13,6 +13,8 @@ def test_output_schema():
             schema_json = json.load(schema)
         # If some difference between generated json and its schema invoke exception
         jsonschema.validate(instance=empty_output, schema=schema_json)
+        assert not empty_output["alert"]
+        assert not empty_output["error"]
 
 
 def test_output_schema_entries_report():
