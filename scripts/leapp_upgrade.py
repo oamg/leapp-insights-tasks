@@ -310,7 +310,7 @@ def _find_highest_report_level(entries):
     return STATUS_CODE_NAME_MAP[valid_action_levels[0]]
 
 
-def parse_results(output):
+def parse_results(output, leapp_upgrade_output=None):
     print("Processing upgrade results ...")
 
     report_json = "Not found"
@@ -332,6 +332,8 @@ def parse_results(output):
             inhibitor_count,
             len(report_entries),
         )
+        if leapp_upgrade_output and REBOOT_GUIDANCE_MESSAGE in leapp_upgrade_output:
+            message += " System is ready to be upgraded. Rebooting system in 1 minute."
         alert = inhibitor_count > 0
         status = (
             _find_highest_report_level(report_entries)
@@ -374,7 +376,6 @@ def reboot_system():
 
 
 def main():
-    leapp_upgrade_output = None
     try:
         # Exit if not RHEL 7.9 or 8.4
         dist, version = get_rhel_version()
@@ -396,8 +397,11 @@ def main():
 
         remove_previous_reports()
         leapp_upgrade_output = execute_upgrade(upgrade_command)
+        parse_results(output, leapp_upgrade_output)
+        update_insights_inventory()
         print("Leapp upgrade command successfully executed.")
-        parse_results(output)
+        if leapp_upgrade_output and REBOOT_GUIDANCE_MESSAGE in leapp_upgrade_output:
+            reboot_system()
     except ProcessError as exception:
         print(exception.report)
         output = OutputCollector(
@@ -407,7 +411,6 @@ def main():
             message=exception.message,
             report=exception.report,
         )
-        leapp_upgrade_output = None
     except Exception as exception:
         print(str(exception))
         output = OutputCollector(
@@ -417,18 +420,10 @@ def main():
             message="An unexpected error occurred. Expand the row for more details.",
             report=str(exception),
         )
-        leapp_upgrade_output = None
     finally:
         print("### JSON START ###")
         print(json.dumps(output.to_dict(), indent=4))
         print("### JSON END ###")
-        update_insights_inventory()
-
-        if leapp_upgrade_output and REBOOT_GUIDANCE_MESSAGE in leapp_upgrade_output:
-            print("System is ready to be upgraded. Reboot is required.")
-            reboot_system()
-        else:
-            print("System is NOT ready to be upgraded.")
 
 
 if __name__ == "__main__":

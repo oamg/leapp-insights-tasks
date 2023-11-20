@@ -28,7 +28,7 @@ def test_main_non_eligible_release(
     mock_is_non_eligible_releases.assert_called_once()
     mock_output_collector.assert_called_once()
     mock_setup_leapp.assert_not_called()
-    mock_update_insights_inventory.assert_called_once()
+    mock_update_insights_inventory.assert_not_called()
 
 
 @patch("scripts.leapp_upgrade.parse_results")
