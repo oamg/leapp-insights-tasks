@@ -9,7 +9,7 @@ def test_output_schema():
         output_collector = OutputCollector(status=status)
         empty_output = output_collector.to_dict()
 
-        with open("schemas/preupgrade_schema_1.0.json", "r") as schema:
+        with open("schemas/upgrade_schema_1.0.json", "r") as schema:
             schema_json = json.load(schema)
         # If some difference between generated json and its schema invoke exception
         jsonschema.validate(instance=empty_output, schema=schema_json)
@@ -28,7 +28,7 @@ def test_output_schema_entries_report():
     output_collector.entries = {"hi": "world"}
     full_output = output_collector.to_dict()
 
-    with open("schemas/preupgrade_schema_1.0.json", "r") as schema:
+    with open("schemas/upgrade_schema_1.0.json", "r") as schema:
         schema_json = json.load(schema)
     # If some difference between generated json and its schema invoke exception
     jsonschema.validate(instance=full_output, schema=schema_json)

@@ -3,7 +3,6 @@ from mock import mock_open, patch
 from scripts.leapp_upgrade import (
     parse_results,
     OutputCollector,
-    REBOOT_GUIDANCE_MESSAGE,
 )
 
 
@@ -35,15 +34,13 @@ def test_gather_report_files_exist_with_reboot(mock_find_level, mock_exists):
     test_txt_content = "Test data"
     test_json_content = '{"test": "hi"}'
     output = OutputCollector()
-    leapp_upgrade_output = (
-        "LOREM IPSUM\nTEST" + REBOOT_GUIDANCE_MESSAGE + "TEST\nDOLOR SIT AMET"
-    )
+    reboot_required = True
     with patch("__builtin__.open") as mock_open_reports:
         return_values = [test_json_content, test_txt_content]
         mock_open_reports.side_effect = lambda file, mode: mock_open(
             read_data=return_values.pop(0)
         )(file, mode)
-        parse_results(output, leapp_upgrade_output)
+        parse_results(output, reboot_required)
 
     assert mock_find_level.call_count == 0  # entries do not exists -> []
     assert output.status == "SUCCESS"

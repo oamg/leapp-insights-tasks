@@ -12,7 +12,7 @@ def test_should_use_no_rhsm_rhsm_and_rhui_installed(
     ]
 
     rhui_installed = True
-    command = ["preupgrade"]
+    command = ["upgrade"]
     result = should_use_no_rhsm_check(rhui_installed, command)
 
     mock_run_subprocess.call_count = 2
@@ -29,7 +29,7 @@ def test_should_use_no_rhsm_rhsm_installed_rhui_not(
     ]
 
     rhui_installed = False
-    command = ["preupgrade"]
+    command = ["upgrade"]
     result = should_use_no_rhsm_check(rhui_installed, command)
 
     mock_run_subprocess.call_count = 2
@@ -43,7 +43,7 @@ def test_should_use_no_rhsm_rhsm_not_installed(mock_run_subprocess):
     ]
 
     rhui_installed = True
-    command = ["preupgrade"]
+    command = ["upgrade"]
     result = should_use_no_rhsm_check(rhui_installed, command)
 
     mock_run_subprocess.assert_called_once()

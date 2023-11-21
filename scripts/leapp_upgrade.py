@@ -310,7 +310,7 @@ def _find_highest_report_level(entries):
     return STATUS_CODE_NAME_MAP[valid_action_levels[0]]
 
 
-def parse_results(output, leapp_upgrade_output=None):
+def parse_results(output, reboot_required=False):
     print("Processing upgrade results ...")
 
     report_json = "Not found"
@@ -332,7 +332,7 @@ def parse_results(output, leapp_upgrade_output=None):
             inhibitor_count,
             len(report_entries),
         )
-        if leapp_upgrade_output and REBOOT_GUIDANCE_MESSAGE in leapp_upgrade_output:
+        if reboot_required:
             message += " System is ready to be upgraded. Rebooting system in 1 minute."
         alert = inhibitor_count > 0
         status = (
@@ -397,10 +397,11 @@ def main():
 
         remove_previous_reports()
         leapp_upgrade_output = execute_upgrade(upgrade_command)
-        parse_results(output, leapp_upgrade_output)
+        reboot_required = REBOOT_GUIDANCE_MESSAGE in leapp_upgrade_output
+        parse_results(output, reboot_required)
         update_insights_inventory()
         print("Leapp upgrade command successfully executed.")
-        if leapp_upgrade_output and REBOOT_GUIDANCE_MESSAGE in leapp_upgrade_output:
+        if reboot_required:
             reboot_system()
     except ProcessError as exception:
         print(exception.report)
