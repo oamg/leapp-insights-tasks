@@ -7,7 +7,7 @@ from scripts.leapp_preupgrade import (
 
 
 @patch("os.path.exists", return_value=True)
-@patch("scripts.leapp_preupgrade.find_highest_report_level", return_value="ERROR")
+@patch("scripts.leapp_preupgrade._find_highest_report_level", return_value="ERROR")
 def test_gather_report_files_exist(mock_find_level, mock_exists):
     test_txt_content = "Test data"
     test_json_content = '{"test": "hi"}'
