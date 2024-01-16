@@ -1,5 +1,5 @@
 import pytest
-from scripts.leapp_upgrade import (
+from scripts.leapp_script import (
     _find_highest_report_level,
 )
 

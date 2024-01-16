@@ -1,5 +1,5 @@
 from mock import patch, mock_open
-from scripts.leapp_preupgrade import get_rhel_version
+from scripts.leapp_script import get_rhel_version
 
 
 @patch("__builtin__.open", mock_open(read_data='ID="rhel"\nVERSION_ID="7.9"\n'))

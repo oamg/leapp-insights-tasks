@@ -1,12 +1,12 @@
 import pytest
 from mock import patch, call
-from scripts.leapp_upgrade import (
+from scripts.leapp_script import (
     ProcessError,
     install_leapp_pkg_corresponding_to_installed_rhui,
 )
 
 
-@patch("scripts.leapp_upgrade.run_subprocess")
+@patch("scripts.leapp_script.run_subprocess")
 def test_install_leapp_pkg_to_installed_rhui(mock_run_subprocess):
     rhui_pkgs = [{"leapp_pkg": "pkg1"}, {"leapp_pkg": "pkg2"}]
 
@@ -19,7 +19,7 @@ def test_install_leapp_pkg_to_installed_rhui(mock_run_subprocess):
         assert call(expected_command) in mock_run_subprocess.call_args_list
 
 
-@patch("scripts.leapp_upgrade.run_subprocess")
+@patch("scripts.leapp_script.run_subprocess")
 def test_install_leapp_pkg_to_installed_rhui_error(
     mock_run_subprocess,
 ):
