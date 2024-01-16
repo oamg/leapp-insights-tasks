@@ -29,6 +29,12 @@ repos:
             "-sn", # Don't display the score
             "--rcfile=.pylintrc", # Link to your config file
           ]
+      - id: wrap-scripts-in-yaml
+        name: wrap-scripts-in-yaml
+        entry: python scripts/wrap_scripts_in_yaml.py
+        language: python
+        files: scripts/.*\.py$
+
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.0
