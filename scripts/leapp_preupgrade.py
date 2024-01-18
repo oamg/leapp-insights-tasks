@@ -213,15 +213,18 @@ def _get_leapp_command_and_packages(version):
 
 
 def setup_leapp(version):
-    print("Installing leapp ...")
     leapp_install_command, rhel_rhui_packages = _get_leapp_command_and_packages(version)
-    output, returncode = run_subprocess(leapp_install_command)
-    if returncode:
-        raise ProcessError(
-            message="Installation of leapp failed",
-            report="Installation of leapp failed with code '%s' and output: %s."
-            % (returncode, output.rstrip("\n")),
-        )
+    if _check_if_package_installed('leapp-upgrade'):
+        print("'leapp-upgrade' already installed, skipping ...")
+    else:
+        print("Installing leapp ...")
+        output, returncode = run_subprocess(leapp_install_command)
+        if returncode:
+            raise ProcessError(
+                message="Installation of leapp failed",
+                report="Installation of leapp failed with code '%s' and output: %s."
+                % (returncode, output.rstrip("\n")),
+            )
 
     print("Check installed rhui packages ...")
     for pkg in rhel_rhui_packages:
