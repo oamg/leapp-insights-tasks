@@ -323,18 +323,28 @@ def parse_results(output, reboot_required=False):
         with open(JSON_REPORT_PATH, mode="r") as handler:
             report_json = json.load(handler)
 
-        # NOTE: with newer schema we will need to parse groups instead of flags
         report_entries = report_json.get("entries", [])
-        inhibitor_count = len(
-            [entry for entry in report_entries if "inhibitor" in entry.get("flags")]
+
+        error_count = len(
+            [entry for entry in report_entries if "error" in entry.get("groups")]
         )
-        message = "Your system has %s inhibitors out of %s potential problems." % (
-            inhibitor_count,
-            len(report_entries),
+        inhibitor_count = len(
+            [entry for entry in report_entries if "inhibitor" in entry.get("groups")]
+        )
+        message = (
+            "Your system has %s error%s and %s inhibitor%s out of %s potential problem%s."
+            % (
+                error_count,
+                "" if error_count == 1 else "s",
+                inhibitor_count,
+                "" if inhibitor_count == 1 else "s",
+                len(report_entries),
+                "" if len(report_entries) == 1 else "s",
+            )
         )
         if reboot_required:
             message += " System is ready to be upgraded. Rebooting system in 1 minute."
-        alert = inhibitor_count > 0
+        alert = inhibitor_count > 0 or error_count > 0
         status = (
             _find_highest_report_level(report_entries)
             if len(report_entries) > 0
@@ -387,7 +397,7 @@ def main():
             )
 
         output = OutputCollector()
-        upgrade_command = ["/usr/bin/leapp", "upgrade", "--report-schema=1.1.0"]
+        upgrade_command = ["/usr/bin/leapp", "upgrade", "--report-schema=1.2.0"]
         rhui_pkgs = setup_leapp(version)
 
         # Check for RHUI PKGs

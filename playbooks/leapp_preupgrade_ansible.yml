@@ -35,7 +35,7 @@
           leapp_pkg: leapp-rhui-google
         - src_pkg: google-rhui-client-rhel8-sap
           leapp_pkg: leapp-rhui-google-sap
-    preupgrade_command: '/usr/bin/leapp preupgrade --report-schema=1.1.0'
+    preupgrade_command: '/usr/bin/leapp preupgrade --report-schema=1.2.0'
     no_rhsm: false
     insights_signature_exclude: /hosts,/vars/insights_signature
     insights_signature: !!binary |
@@ -176,15 +176,19 @@
 
         - name: Set inhibitor count
           ansible.builtin.set_fact:
-            inhibitor_count: "{{ report_content.entries | selectattr('flags', 'defined') | selectattr('flags', 'contains', 'inhibitor') | list | length }}"
+            inhibitor_count: "{{ report_content.entries | selectattr('groups', 'defined') | selectattr('groups', 'contains', 'inhibitor') | list | length }}"
+
+        - name: Set errors count
+          ansible.builtin.set_fact:
+            error_count: "{{ report_content.entries | selectattr('groups', 'defined') | selectattr('groups', 'contains', 'error') | list | length }}"
 
         - name: Set result
           ansible.builtin.set_fact:
             task_results:
               report_json: "{{ report_content }}"
               report: "{{ report_content_txt_raw.content | b64decode }}"
-              message: "Your system has {{ inhibitor_count }} inhibitors out of {{report_content.entries | length}} potential problems."
-              alert: "{{ inhibitor_count | int > 0 }}"
+              message: "Your system has {{ error_count }} errors and {{ inhibitor_count }} inhibitors out of {{report_content.entries | length}} potential problems."
+              alert: "{{ (inhibitor_count | int > 0) or (error_count | int > 0) }}"
 
     - name: Start insights-client for immediate data collection of leapp-report
       ansible.builtin.shell: insights-client >/dev/null 2>&1 &
