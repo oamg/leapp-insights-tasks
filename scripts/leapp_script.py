@@ -2,7 +2,11 @@ import json
 import os
 import subprocess
 
-
+# SCRIPT_TYPE is either 'PREUPGRADE' or 'UPGRADE'
+# Value is set in signed yaml envelope in content_vars (RHC_WORKER_LEAPP_SCRIPT_TYPE)
+SCRIPT_TYPE = os.environ.get("RHC_WORKER_LEAPP_SCRIPT_TYPE", "None")
+IS_UPGRADE = SCRIPT_TYPE == "UPGRADE"
+IS_PREUPGRADE = SCRIPT_TYPE == "PREUPGRADE"
 JSON_REPORT_PATH = "/var/log/leapp/leapp-report.json"
 TXT_REPORT_PATH = "/var/log/leapp/leapp-report.txt"
 REBOOT_GUIDANCE_MESSAGE = "A reboot is required to continue. Please reboot your system."
@@ -97,11 +101,10 @@ def get_rhel_version():
 
 
 def is_non_eligible_releases(release):
-    print("Exit if not RHEL 7.9 or 8.4")
-    eligible_releases = ["7.9", "8.4"]
-    major_version, minor = release.split(".") if release is not None else (None, None)
-    version_str = major_version + "." + minor
-    return release is None or version_str not in eligible_releases
+    """Check if the release is eligible for upgrade or preupgrade."""
+    print("Exit if not RHEL 7 or RHEL 8 ...")
+    major_version, _ = release.split(".") if release is not None else (None, None)
+    return release is None or major_version not in ["7", "8"]
 
 
 # Code taken from
@@ -251,7 +254,11 @@ def should_use_no_rhsm_check(rhui_installed, command):
         )
 
     if rhui_installed and not rhsm_repo_check_fail:
-        print("RHUI packages detected, adding --no-rhsm flag to preupgrade command")
+        print(
+            "RHUI packages detected, adding --no-rhsm flag to {} command".format(
+                SCRIPT_TYPE.title()
+            )
+        )
         command.append("--no-rhsm")
         return True
     return False
@@ -273,7 +280,7 @@ def install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs):
 
 
 def remove_previous_reports():
-    print("Removing previous preupgrade reports at /var/log/leapp/leapp-report.* ...")
+    print("Removing previous leapp reports at /var/log/leapp/leapp-report.* ...")
 
     if os.path.exists(JSON_REPORT_PATH):
         os.remove(JSON_REPORT_PATH)
@@ -282,19 +289,11 @@ def remove_previous_reports():
         os.remove(TXT_REPORT_PATH)
 
 
-def execute_upgrade(command):
-    print("Executing upgrade ...")
+def execute_operation(command):
+    print("Executing {} ...".format(SCRIPT_TYPE.title()))
     output, _ = run_subprocess(command)
 
     return output
-
-    # NOTE: we do not care about returncode because non-null always means actor error (or leapp error)
-    # if returncode:
-    #     print(
-    #         "The process leapp exited with code '%s' and output: %s\n"
-    #         % (returncode, output)
-    #     )
-    #     raise ProcessError(message="Leapp exited with code '%s'." % returncode)
 
 
 def _find_highest_report_level(entries):
@@ -314,7 +313,7 @@ def _find_highest_report_level(entries):
 
 
 def parse_results(output, reboot_required=False):
-    print("Processing upgrade results ...")
+    print("Processing {} results ...".format(SCRIPT_TYPE.title()))
 
     report_json = "Not found"
     message = "Can't open json report at " + JSON_REPORT_PATH
@@ -368,17 +367,16 @@ def parse_results(output, reboot_required=False):
     output.report = report_txt
 
 
-def update_insights_inventory():
+def update_insights_inventory(output):
     """Call insights-client to update insights inventory."""
     print("Updating system status in Red Hat Insights.")
-    output, returncode = run_subprocess(["/usr/bin/insights-client"])
+    _, returncode = run_subprocess(cmd=["/usr/bin/insights-client"])
 
     if returncode:
-        raise ProcessError(
-            message="Failed to update Insights Inventory by registering the system again. See output the following output: %s"
-            % output,
-            report="insights-client execution exited with code '%s'." % returncode,
-        )
+        print("System registration failed with exit code %s." % returncode)
+        output.message += " Failed to update Insights Inventory."
+        output.alert = True
+        return
 
     print("System registered with insights-client successfully.")
 
@@ -390,7 +388,15 @@ def reboot_system():
 
 def main():
     try:
-        # Exit if not RHEL 7.9 or 8.4
+        # Exit if invalid value for SCRIPT_TYPE
+        if SCRIPT_TYPE not in ["PREUPGRADE", "UPGRADE"]:
+            raise ProcessError(
+                message="Allowed values for RHC_WORKER_LEAPP_SCRIPT_TYPE are 'PREUPGRADE' and 'UPGRADE'.",
+                report="Exiting because RHC_WORKER_LEAPP_SCRIPT_TYPE='%s'"
+                % SCRIPT_TYPE,
+            )
+
+        # Exit if not eligible release
         dist, version = get_rhel_version()
         if dist != "rhel" or is_non_eligible_releases(version):
             raise ProcessError(
@@ -400,20 +406,22 @@ def main():
             )
 
         output = OutputCollector()
+        preupgrade_command = ["/usr/bin/leapp", "preupgrade", "--report-schema=1.2.0"]
         upgrade_command = ["/usr/bin/leapp", "upgrade", "--report-schema=1.2.0"]
+        operation_command = preupgrade_command if IS_PREUPGRADE else upgrade_command
         rhui_pkgs = setup_leapp(version)
 
         # Check for RHUI PKGs
-        use_no_rhsm = should_use_no_rhsm_check(len(rhui_pkgs) > 1, upgrade_command)
+        use_no_rhsm = should_use_no_rhsm_check(len(rhui_pkgs) > 1, operation_command)
         if use_no_rhsm:
             install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs)
 
         remove_previous_reports()
-        leapp_upgrade_output = execute_upgrade(upgrade_command)
-        reboot_required = REBOOT_GUIDANCE_MESSAGE in leapp_upgrade_output
+        leapp_output = execute_operation(operation_command)
+        reboot_required = REBOOT_GUIDANCE_MESSAGE in leapp_output
         parse_results(output, reboot_required)
-        update_insights_inventory()
-        print("Leapp upgrade command successfully executed.")
+        update_insights_inventory(output)
+        print("Operation {} finished successfully.".format(SCRIPT_TYPE.title()))
         if reboot_required:
             reboot_system()
     except ProcessError as exception:

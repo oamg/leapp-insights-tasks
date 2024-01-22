@@ -1,8 +1,8 @@
 from mock import patch
-from scripts.leapp_upgrade import should_use_no_rhsm_check
+from scripts.leapp_script import should_use_no_rhsm_check
 
 
-@patch("scripts.leapp_upgrade.run_subprocess")
+@patch("scripts.leapp_script.run_subprocess")
 def test_should_use_no_rhsm_rhsm_and_rhui_installed(
     mock_run_subprocess,
 ):
@@ -19,7 +19,7 @@ def test_should_use_no_rhsm_rhsm_and_rhui_installed(
     assert result
 
 
-@patch("scripts.leapp_upgrade.run_subprocess")
+@patch("scripts.leapp_script.run_subprocess")
 def test_should_use_no_rhsm_rhsm_installed_rhui_not(
     mock_run_subprocess,
 ):
@@ -36,7 +36,7 @@ def test_should_use_no_rhsm_rhsm_installed_rhui_not(
     assert not result
 
 
-@patch("scripts.leapp_upgrade.run_subprocess")
+@patch("scripts.leapp_script.run_subprocess")
 def test_should_use_no_rhsm_rhsm_not_installed(mock_run_subprocess):
     mock_run_subprocess.side_effect = [
         ("error_message", 1),

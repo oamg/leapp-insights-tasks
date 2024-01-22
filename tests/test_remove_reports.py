@@ -1,5 +1,5 @@
 from mock import patch
-from scripts.leapp_preupgrade import (
+from scripts.leapp_script import (
     remove_previous_reports,
 )
 
