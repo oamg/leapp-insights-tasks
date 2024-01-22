@@ -1,14 +1,17 @@
 import os
+import argparse
 import ruamel.yaml
 
 # Scripts located in this project
 SCRIPT_PATH = "scripts/leapp_script.py"
 
-# Yaml playbooks in rhc-worker-script
-PRE_UPGRADE_YAML_PATH = os.path.join(
+REPO_PRE_UPGRADE_YAML_PATH = os.path.join(".", "playbooks/leapp_preupgrade_script.yaml")
+REPO_UPGRADE_YAML_PATH = os.path.join(".", "playbooks/leapp_upgrade_script.yaml")
+
+WORKER_PRE_UPGRADE_YAML_PATH = os.path.join(
     "..", "rhc-worker-script/development/nginx/data/leapp_preupgrade.yml"
 )
-UPGRADE_YAML_PATH = os.path.join(
+WORKER_UPGRADE_YAML_PATH = os.path.join(
     "..", "rhc-worker-script/development/nginx/data/leapp_upgrade.yml"
 )
 
@@ -44,7 +47,7 @@ def _get_updated_yaml_content(yaml_path, script_path):
         content = script.read()
 
     script_type = "PREUPGRADE" if "preupgrade" in yaml_path else "UPGRADE"
-    config[0]["name"] = "LEAPP %s" % script_type.title()
+    config[0]["name"] = "Leapp %s for rhc-worker-script" % script_type.title()
     config[0]["vars"]["content"] = content
     config[0]["vars"]["content_vars"]["LEAPP_SCRIPT_TYPE"] = script_type
     return config, mapping, offset
@@ -59,14 +62,31 @@ def _write_content(config, path, mapping=None, offset=None):
 
 
 def main():
-    config, mapping, offset = _get_updated_yaml_content(
-        PRE_UPGRADE_YAML_PATH, SCRIPT_PATH
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--target",
+        choices=["repo", "worker"],
+        help="Target to sync scripts to",
+        default="worker",
     )
-    print("Writing new content to %s" % PRE_UPGRADE_YAML_PATH)
-    _write_content(config, PRE_UPGRADE_YAML_PATH, mapping, offset)
-    config, mapping, offset = _get_updated_yaml_content(UPGRADE_YAML_PATH, SCRIPT_PATH)
-    print("Writing new content to %s" % UPGRADE_YAML_PATH)
-    _write_content(config, UPGRADE_YAML_PATH, mapping, offset)
+    args = parser.parse_args()
+
+    if args.target == "repo":
+        print("Syncing scripts to repo")
+        pre_upgrade_path = REPO_PRE_UPGRADE_YAML_PATH
+        upgrade_path = REPO_UPGRADE_YAML_PATH
+
+    elif args.target == "worker":
+        print("Syncing scripts to worker")
+        pre_upgrade_path = WORKER_PRE_UPGRADE_YAML_PATH
+        upgrade_path = WORKER_UPGRADE_YAML_PATH
+
+    config, mapping, offset = _get_updated_yaml_content(pre_upgrade_path, SCRIPT_PATH)
+    print("Writing new content to %s" % pre_upgrade_path)
+    _write_content(config, pre_upgrade_path, mapping, offset)
+    config, mapping, offset = _get_updated_yaml_content(upgrade_path, SCRIPT_PATH)
+    print("Writing new content to %s" % upgrade_path)
+    _write_content(config, upgrade_path, mapping, offset)
 
 
 if __name__ == "__main__":

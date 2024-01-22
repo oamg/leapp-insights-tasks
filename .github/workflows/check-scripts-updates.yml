@@ -20,8 +20,8 @@ jobs:
 
         changed_files=$(git diff --name-only "$BASE_COMMIT" "$HEAD_COMMIT")
 
-        # Check if any files in scripts/ were updated (excluding wrap_scripts_in_yaml.py)
-        scripts_updated=$(echo "$changed_files" | grep -v 'wrap_scripts_in_yaml.py' | grep 'scripts/' || true)
+        # Check if any files in scripts/ were updated
+        scripts_updated=$(echo "$changed_files" | grep 'scripts/' || true)
         echo "Scripts updated: $scripts_updated"
 
         # Check if any files in playbooks/ were updated
