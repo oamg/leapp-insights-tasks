@@ -10,7 +10,7 @@ from scripts.leapp_preupgrade import (
 @patch("scripts.leapp_preupgrade._find_highest_report_level", return_value="ERROR")
 def test_gather_report_files_exist(mock_find_level, mock_exists):
     test_txt_content = "Test data"
-    test_json_content = '{"test": "hi"}'
+    test_json_content = '{"entries": [{"groups": ["error"]}]}'
     output = OutputCollector()
     with patch("__builtin__.open") as mock_open_reports:
         return_values = [test_json_content, test_txt_content]
@@ -19,13 +19,15 @@ def test_gather_report_files_exist(mock_find_level, mock_exists):
         )(file, mode)
         parse_results(output)
 
-    assert mock_find_level.call_count == 0  # entries do not exists -> []
-    assert output.status == "SUCCESS"
+    assert mock_find_level.call_count == 1  # entries do not exists -> []
+    assert output.status == "ERROR"
     assert mock_exists.call_count == 2
     assert output.report == test_txt_content
-    assert output.report_json.get("test") == "hi"
-    # NOTE: is this right?
-    assert output.message == "Your system has 0 inhibitors out of 0 potential problems."
+    assert output.report_json.get("entries") is not None
+    assert (
+        output.message
+        == "Your system has 1 error and 0 inhibitors out of 1 potential problem."
+    )
 
 
 @patch("os.path.exists", return_value=False)

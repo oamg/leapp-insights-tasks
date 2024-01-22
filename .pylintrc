@@ -21,6 +21,7 @@ disable=
  line-too-long,
  too-many-arguments,
  unnecessary-lambda,
+ duplicate-code,
 
 [REPORTS]
 

@@ -35,7 +35,7 @@
           leapp_pkg: leapp-rhui-google
         - src_pkg: google-rhui-client-rhel8-sap
           leapp_pkg: leapp-rhui-google-sap
-    upgrade_command: '/usr/bin/leapp upgrade --report-schema=1.1.0'
+    upgrade_command: '/usr/bin/leapp upgrade --report-schema=1.2.0'
     no_rhsm: false
     is_leapp_upgrade_successful: false
     insights_signature_exclude: /hosts,/vars/insights_signature
