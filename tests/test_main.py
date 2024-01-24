@@ -6,6 +6,18 @@ from scripts.leapp_script import (
 )
 
 
+@patch("scripts.leapp_script.SCRIPT_TYPE", "TEST")
+def test_main_invalid_script_type(capsys):
+    main()
+    captured = capsys.readouterr()
+
+    assert (
+        "Allowed values for RHC_WORKER_LEAPP_SCRIPT_TYPE are 'PREUPGRADE' and 'UPGRADE'."
+        in captured.out
+    )
+    assert "Exiting because RHC_WORKER_LEAPP_SCRIPT_TYPE='TEST'" in captured.out
+
+
 @patch("scripts.leapp_script.SCRIPT_TYPE", "PREUPGRADE")
 @patch("scripts.leapp_script.IS_PREUPGRADE", True)
 @patch("scripts.leapp_script.get_rhel_version")
@@ -19,12 +31,16 @@ def test_main_non_eligible_release_preupgrade(
     mock_setup_leapp,
     mock_is_non_eligible_releases,
     mock_get_rhel_version,
+    capsys,
 ):
     mock_get_rhel_version.return_value = ("rhel", "6.9")
     mock_is_non_eligible_releases.return_value = True
     mock_output_collector.return_value = OutputCollector(entries=["non-empty"])
 
     main()
+
+    captured = capsys.readouterr()
+    assert 'Exiting because distribution="rhel" and version="6.9"' in captured.out
 
     mock_get_rhel_version.assert_called_once()
     mock_is_non_eligible_releases.assert_called_once()
@@ -56,6 +72,7 @@ def test_main_eligible_release_preupgrade(
     mock_is_non_eligible_releases,
     mock_get_rhel_version,
     mock_parse_results,
+    capsys,
 ):
     mock_get_rhel_version.return_value = ("rhel", "7.9")
     mock_is_non_eligible_releases.return_value = False
@@ -64,6 +81,8 @@ def test_main_eligible_release_preupgrade(
     mock_output_collector.return_value = OutputCollector(entries=["non-empty"])
 
     main()
+    captured = capsys.readouterr()
+    assert "Operation Preupgrade finished successfully." in captured.out
 
     mock_setup_leapp.assert_called_once()
     mock_should_use_no_rhsm_check.assert_called_once()
@@ -72,33 +91,6 @@ def test_main_eligible_release_preupgrade(
     mock_execute_operation.assert_called_once()
     mock_parse_results.assert_called_once()
     mock_update_insights_inventory.assert_called_once()
-
-
-@patch("scripts.leapp_script.SCRIPT_TYPE", "UPGRADE")
-@patch("scripts.leapp_script.IS_UPGRADE", True)
-@patch("scripts.leapp_script.get_rhel_version")
-@patch("scripts.leapp_script.is_non_eligible_releases")
-@patch("scripts.leapp_script.setup_leapp")
-@patch("scripts.leapp_script.update_insights_inventory")
-@patch("scripts.leapp_script.OutputCollector")
-def test_main_non_eligible_release_upgrade(
-    mock_output_collector,
-    mock_update_insights_inventory,
-    mock_setup_leapp,
-    mock_is_non_eligible_releases,
-    mock_get_rhel_version,
-):
-    mock_get_rhel_version.return_value = ("rhel", "6.9")
-    mock_is_non_eligible_releases.return_value = True
-    mock_output_collector.return_value = OutputCollector(entries=["non-empty"])
-
-    main()
-
-    mock_get_rhel_version.assert_called_once()
-    mock_is_non_eligible_releases.assert_called_once()
-    mock_output_collector.assert_called_once()
-    mock_setup_leapp.assert_not_called()
-    mock_update_insights_inventory.assert_not_called()
 
 
 @patch("scripts.leapp_script.SCRIPT_TYPE", "UPGRADE")
@@ -126,6 +118,7 @@ def test_main_eligible_release_upgrade(
     mock_get_rhel_version,
     mock_reboot_system,
     mock_parse_results,
+    capsys,
 ):
     mock_get_rhel_version.return_value = ("rhel", "7.9")
     mock_is_non_eligible_releases.return_value = False
@@ -137,6 +130,8 @@ def test_main_eligible_release_upgrade(
     )
 
     main()
+    captured = capsys.readouterr()
+    assert "Operation Upgrade finished successfully." in captured.out
 
     mock_setup_leapp.assert_called_once()
     mock_should_use_no_rhsm_check.assert_called_once()
@@ -173,6 +168,7 @@ def test_main_upgrade_not_sucessfull(
     mock_get_rhel_version,
     mock_reboot_system,
     mock_parse_results,
+    capsys,
 ):
     mock_get_rhel_version.return_value = ("rhel", "7.9")
     mock_is_non_eligible_releases.return_value = False
@@ -182,6 +178,8 @@ def test_main_upgrade_not_sucessfull(
     mock_execute_operation.return_value = "LOREM IPSUM\n" + "\nDOLOR SIT AMET"
 
     main()
+    captured = capsys.readouterr()
+    assert "Operation Upgrade finished successfully." in captured.out
 
     mock_setup_leapp.assert_called_once()
     mock_should_use_no_rhsm_check.assert_called_once()
