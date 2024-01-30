@@ -220,7 +220,7 @@ def _get_leapp_command_and_packages(version):
 
 def setup_leapp(version):
     leapp_install_command, rhel_rhui_packages = _get_leapp_command_and_packages(version)
-    if _check_if_package_installed('leapp-upgrade'):
+    if _check_if_package_installed("leapp-upgrade"):
         print("'leapp-upgrade' already installed, skipping ...")
     else:
         print("Installing leapp ...")
@@ -345,7 +345,11 @@ def parse_results(output, reboot_required=False):
             )
         )
         if reboot_required:
-            message += " System is ready to be upgraded. Rebooting system in 1 minute."
+            problem_info = message.lstrip("Your system has ").rstrip(".")
+            message = (
+                "System will be upgraded (%s). Rebooting system in 1 minute."
+                % problem_info
+            )
         alert = inhibitor_count > 0 or error_count > 0
         status = (
             _find_highest_report_level(report_entries)
@@ -418,11 +422,11 @@ def main():
 
         remove_previous_reports()
         leapp_output = execute_operation(operation_command)
-        reboot_required = REBOOT_GUIDANCE_MESSAGE in leapp_output
-        parse_results(output, reboot_required)
+        upgrade_reboot_required = REBOOT_GUIDANCE_MESSAGE in leapp_output
+        parse_results(output, upgrade_reboot_required)
         update_insights_inventory(output)
         print("Operation {} finished successfully.".format(SCRIPT_TYPE.title()))
-        if reboot_required:
+        if upgrade_reboot_required:
             reboot_system()
     except ProcessError as exception:
         print(exception.report)

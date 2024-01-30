@@ -31,9 +31,12 @@ repos:
           ]
       - id: sync-scripts-to-yaml
         name: sync-scripts-to-yaml
-        entry: python misc/sync_scripts_to_yaml.py
+        entry: python misc/sync_scripts.py
+        additional_dependencies: [ruamel.yaml==0.16.13]
         args: ["--target", "repo"]
         language: python
+        types: [python]
+        pass_filenames: false
         files: scripts/.*\.py$
 
 
