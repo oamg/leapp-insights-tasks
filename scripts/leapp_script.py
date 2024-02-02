@@ -326,6 +326,14 @@ def parse_results(output, reboot_required=False):
             report_json = json.load(handler)
 
         report_entries = report_json.get("entries", [])
+        for entry in report_entries:
+            groups = entry.get("groups", [])
+            # NOTE: "severity" key in report is connected to tasks-frontend severity maps
+            # Every change must come with change to severity maps otherwise UI will throw sentry errors
+            if "error" in groups:
+                entry["severity"] = "error"
+            elif "inhibitor" in groups:
+                entry["severity"] = "inhibitor"
 
         error_count = len(
             [entry for entry in report_entries if "error" in entry.get("groups")]

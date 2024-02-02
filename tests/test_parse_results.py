@@ -1,3 +1,5 @@
+import json
+import pytest
 from mock import mock_open, patch
 
 from scripts.leapp_script import (
@@ -6,11 +8,18 @@ from scripts.leapp_script import (
 )
 
 
+@pytest.mark.parametrize(
+    ("groups_value"),
+    (
+        ("error"),
+        ("inhibitor"),
+    ),
+)
 @patch("os.path.exists", return_value=True)
 @patch("scripts.leapp_script._find_highest_report_level", return_value="ERROR")
-def test_gather_report_files_exist(mock_find_level, mock_exists):
+def test_gather_report_files_exist(mock_find_level, mock_exists, groups_value):
     test_txt_content = "Test data"
-    test_json_content = '{"entries": [{"groups": ["error"]}]}'
+    test_json_content = json.dumps({"entries": [{"groups": [groups_value]}]})
     output = OutputCollector()
     with patch("__builtin__.open") as mock_open_reports:
         return_values = [test_json_content, test_txt_content]
@@ -19,14 +28,24 @@ def test_gather_report_files_exist(mock_find_level, mock_exists):
         )(file, mode)
         parse_results(output)
 
-    assert mock_find_level.call_count == 1  # entries do not exists -> []
+    assert mock_find_level.call_count == 1
     assert output.status == "ERROR"
     assert mock_exists.call_count == 2
     assert output.report == test_txt_content
     assert output.report_json.get("entries") is not None
-    assert (
-        output.message
-        == "Your system has 1 error and 0 inhibitors out of 1 potential problem."
+    assert output.report_json.get("entries")[0]["severity"] == groups_value
+
+    num_errors = test_json_content.count("error")
+    errors_str = "%s error%s" % (num_errors, "" if num_errors == 1 else "s")
+    num_inhibitor = test_json_content.count("inhibitor")
+    inhibitor_str = "%s inhibitor%s" % (
+        num_inhibitor,
+        "" if num_inhibitor == 1 else "s",
+    )
+
+    assert output.message == "Your system has %s and %s out of 1 potential problem." % (
+        errors_str,
+        inhibitor_str,
     )
 
 
