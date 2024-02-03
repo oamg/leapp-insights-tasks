@@ -174,6 +174,10 @@
           ansible.builtin.set_fact:
             report_content: "{{ report_content_raw.content | b64decode }}"
 
+        - name: Set total problems count
+          ansible.builtin.set_fact:
+            total_problems_count: "{{ report_content.entries | length }}"
+
         - name: Set inhibitor count
           ansible.builtin.set_fact:
             inhibitor_count: "{{ report_content.entries | selectattr('groups', 'defined') | selectattr('groups', 'contains', 'inhibitor') | list | length }}"
@@ -182,12 +186,43 @@
           ansible.builtin.set_fact:
             error_count: "{{ report_content.entries | selectattr('groups', 'defined') | selectattr('groups', 'contains', 'error') | list | length }}"
 
+        - name: Transform severities in leapp report to distinguish errors and inhibitors from other high risks entries
+          set_fact:
+            report_content_edited: >-
+              {{
+                {
+                  "entries": report_content.entries | default([]) | map(
+                    lambda entry: entry | combine(
+                      {"severity": "error"} if "error" in entry.groups else
+                      {"severity": "inhibitor"} if "inhibitor" in entry.groups else {}
+                    )
+                  ) | list
+                }
+              }}
+
+        - name: Set message if inhibitors or errors present
+          set_fact:
+            message: >-
+              "The upgrade cannot proceed.
+              Your system has {{ error_count }} error{{ 's' if error_count != 1 else '' }}
+              and {{ inhibitor_count }} inhibitor{{ 's' if inhibitor_count != 1 else '' }}
+              out of {{ total_problems_count }} potential problems."
+          when: inhibitor_count != 0 or error_count != 0
+
+
+        - name: Set message if no inhibitors and no errors present
+          set_fact:
+            message: >-
+              {{ 'No problems found. The system is ready for upgrade.' if  total_problems_count == 0
+              else 'The upgrade can proceed. However, there is one or more warnings about issues that might occur after the upgrade.'}}
+          when: inhibitor_count == 0 and error_count == 0
+
         - name: Set result
           ansible.builtin.set_fact:
             task_results:
-              report_json: "{{ report_content }}"
+              report_json: "{{ report_content_edited }}"
               report: "{{ report_content_txt_raw.content | b64decode }}"
-              message: "Your system has {{ error_count }} errors and {{ inhibitor_count }} inhibitors out of {{report_content.entries | length}} potential problems."
+              message: "{{ message }}"
               alert: "{{ (inhibitor_count | int > 0) or (error_count | int > 0) }}"
 
     - name: Start insights-client for immediate data collection of leapp-report

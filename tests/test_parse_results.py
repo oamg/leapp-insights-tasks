@@ -70,7 +70,7 @@ def test_gather_report_files_exist_with_reboot(mock_find_level, mock_exists):
     assert output.report_json.get("test") == "hi"
     assert (
         output.message
-        == "System will be upgraded (0 errors and 0 inhibitors out of 0 potential problems). Rebooting system in 1 minute."
+        == "System will be upgraded. Rebooting system in 1 minute. After reboot check inventory to verify the system is registered with new RHEL major version."
     )
 
 

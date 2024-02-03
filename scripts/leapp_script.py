@@ -353,10 +353,9 @@ def parse_results(output, reboot_required=False):
             )
         )
         if reboot_required:
-            problem_info = message.lstrip("Your system has ").rstrip(".")
             message = (
-                "System will be upgraded (%s). Rebooting system in 1 minute."
-                % problem_info
+                "System will be upgraded. Rebooting system in 1 minute. "
+                "After reboot check inventory to verify the system is registered with new RHEL major version."
             )
         alert = inhibitor_count > 0 or error_count > 0
         status = (

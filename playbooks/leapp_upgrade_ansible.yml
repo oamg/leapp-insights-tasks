@@ -176,16 +176,33 @@
           ansible.builtin.set_fact:
             report_content: "{{ report_content_raw.content | b64decode }}"
 
+        - name: Transform severities in leapp report to distinguish errors and inhibitors from other high risks entries
+          set_fact:
+            report_content_edited: >-
+              {{
+                {
+                  "entries": report_content.entries | default([]) | map(
+                    lambda entry: entry | combine(
+                      {"severity": "error"} if "error" in entry.groups else
+                      {"severity": "inhibitor"} if "inhibitor" in entry.groups else {}
+                    )
+                  ) | list
+                }
+              }}
+
     - name: Prepare final result
       block:
         - name: Set default fail message
           set_fact:
-            message: "Upgrade of your system failed. Please check the /var/log/leapp/leapp-report.json and /var/log/rhc-worker-playbook/ansible logs for details."
+            message: >-
+              "The upgrade cannot proceed. You must resolve existing issues to perform the upgrade.
+              Please check the /var/log/leapp/leapp-report.json and /var/log/rhc-worker-playbook/ansible logs for details."
 
         - name: Set message if leapp upgrade succeeded
           set_fact:
-            message: "Upgrade ran successfully. System has now been rebooted. If everything works fine, the system is running the new RHEL version after reboot. Check inventory to verify the system is\
-              \ in new major version."
+            message: >-
+              "No problems found. The system will be upgraded. Rebooting system in 1 minute.
+              After reboot check inventory to verify the RHEL system is registered with new major version."
           when: is_leapp_upgrade_successful is true
 
         - name: Set report content as empty if upgrade was successful
