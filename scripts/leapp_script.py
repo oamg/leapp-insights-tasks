@@ -13,12 +13,14 @@ REBOOT_GUIDANCE_MESSAGE = "A reboot is required to continue. Please reboot your 
 
 # Based on https://github.com/oamg/leapp/blob/master/report-schema-v110.json#L211
 STATUS_CODE = {
+    "inhibitor": 4,
     "high": 3,
     "medium": 2,
     "low": 1,
     "info": 0,
 }
 STATUS_CODE_NAME_MAP = {
+    "inhibitor": "ERROR",
     "high": "ERROR",
     "medium": "WARNING",
     "low": "WARNING",
@@ -301,9 +303,7 @@ def _find_highest_report_level(entries):
     Gather status codes from entries.
     """
     print("Collecting and combining report status.")
-    action_level_combined = []
-    for value in entries:
-        action_level_combined.append(value["severity"])
+    action_level_combined = [value["severity"] for value in entries]
 
     valid_action_levels = [
         level for level in action_level_combined if level in STATUS_CODE
