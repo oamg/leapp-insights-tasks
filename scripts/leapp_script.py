@@ -372,7 +372,7 @@ def parse_results(output, reboot_required=False):
     print("Reading TXT report")
     report_txt = "Not found"
     if os.path.exists(TXT_REPORT_PATH):
-        with open(JSON_REPORT_PATH, mode="r") as handler:
+        with open(TXT_REPORT_PATH, mode="r") as handler:
             report_txt = handler.read()
 
     output.report = report_txt
