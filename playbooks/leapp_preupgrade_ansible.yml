@@ -204,7 +204,7 @@
                     "entries": report_content_edited.entries | default([]) +
                       [
                         entry | combine(
-                          {"severity": "error"} if "error" in entry.groups | default([]) else
+                          {"severity": "inhibitor"} if "error" in entry.groups | default([]) else
                           {"severity": "inhibitor"} if "inhibitor" in entry.groups | default([]) else {}
                         )
                       ]
@@ -219,8 +219,7 @@
           set_fact:
             message: >-
               "The upgrade cannot proceed.
-              Your system has {{ error_count }} error{{ 's' if error_count != 1 else '' }}
-              and {{ inhibitor_count }} inhibitor{{ 's' if inhibitor_count != 1 else '' }}
+              Your system has {{ error_count + inhibitor_count }} inhibitor{{ 's' if inhibitor_count + error_count != 1 else '' }}
               out of {{ total_problems_count }} potential problems."
           when: inhibitor_count != 0 or error_count != 0
 

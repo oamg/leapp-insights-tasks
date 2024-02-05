@@ -33,7 +33,7 @@ def test_gather_report_files_exist(mock_find_level, mock_exists, groups_value):
     assert mock_exists.call_count == 2
     assert output.report == test_txt_content
     assert output.report_json.get("entries") is not None
-    assert output.report_json.get("entries")[0]["severity"] == groups_value
+    assert output.report_json.get("entries")[0]["severity"] == "inhibitor"
 
     num_errors = test_json_content.count("error")
     errors_str = "%s error%s" % (num_errors, "" if num_errors == 1 else "s")

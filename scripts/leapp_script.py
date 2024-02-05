@@ -331,7 +331,7 @@ def parse_results(output, reboot_required=False):
             # NOTE: "severity" key in report is connected to tasks-frontend severity maps
             # Every change must come with change to severity maps otherwise UI will throw sentry errors
             if "error" in groups:
-                entry["severity"] = "error"
+                entry["severity"] = "inhibitor"
             elif "inhibitor" in groups:
                 entry["severity"] = "inhibitor"
 

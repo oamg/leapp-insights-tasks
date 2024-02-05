@@ -194,7 +194,7 @@
                     "entries": report_content_edited.entries | default([]) +
                       [
                         entry | combine(
-                          {"severity": "error"} if "error" in entry.groups | default([]) else
+                          {"severity": "inhibitor"} if "error" in entry.groups | default([]) else
                           {"severity": "inhibitor"} if "inhibitor" in entry.groups | default([]) else {}
                         )
                       ]
