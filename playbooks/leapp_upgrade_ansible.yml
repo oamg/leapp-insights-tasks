@@ -176,19 +176,34 @@
           ansible.builtin.set_fact:
             report_content: "{{ report_content_raw.content | b64decode }}"
 
+        - name: Init new empty entries for report with edited severity
+          ansible.builtin.set_fact:
+            report_content_edited: >-
+              {{
+                {
+                  "entries": []
+                }
+              }}
+
         - name: Transform severities in leapp report to distinguish errors and inhibitors from other high risks entries
           set_fact:
             report_content_edited: >-
               {{
-                {
-                  "entries": report_content.entries | default([]) | map(
-                    lambda entry: entry | combine(
-                      {"severity": "error"} if "error" in entry.groups else
-                      {"severity": "inhibitor"} if "inhibitor" in entry.groups else {}
-                    )
-                  ) | list
-                }
+                report_content_edited | combine(
+                  {
+                    "entries": report_content_edited.entries | default([]) +
+                      [
+                        entry | combine(
+                          {"severity": "error"} if "error" in entry.groups | default([]) else
+                          {"severity": "inhibitor"} if "inhibitor" in entry.groups | default([]) else {}
+                        )
+                      ]
+                  }
+                )
               }}
+          loop: "{{ report_content.entries | default([]) }}"
+          loop_control:
+            loop_var: entry
 
     - name: Prepare final result
       block:
@@ -207,13 +222,13 @@
 
         - name: Set report content as empty if upgrade was successful
           set_fact:
-            report_content: ""
+            report_content_edited: ""
           when: is_leapp_upgrade_successful is true
 
         - name: Set result
           ansible.builtin.set_fact:
             task_results:
-              report_json: "{{ report_content }}"
+              report_json: "{{ report_content_edited }}"
               report: "{{ report_content_txt_raw.content | b64decode }}"
               message: "{{ message }}"
               alert: "{{ not is_leapp_upgrade_successful }}"
