@@ -36,16 +36,16 @@ def test_gather_report_files_exist(mock_find_level, mock_exists, groups_value):
     assert output.report_json.get("entries")[0]["severity"] == "inhibitor"
 
     num_errors = test_json_content.count("error")
-    errors_str = "%s error%s" % (num_errors, "" if num_errors == 1 else "s")
     num_inhibitor = test_json_content.count("inhibitor")
     inhibitor_str = "%s inhibitor%s" % (
-        num_inhibitor,
-        "" if num_inhibitor == 1 else "s",
+        num_inhibitor + num_errors,
+        "" if num_inhibitor + num_errors == 1 else "s",
     )
 
-    assert output.message == "Your system has %s and %s out of 1 potential problem." % (
-        errors_str,
-        inhibitor_str,
+    assert (
+        output.message
+        == "The upgrade cannot proceed. Your system has %s out of 1 potential problem."
+        % (inhibitor_str,)
     )
 
 
@@ -70,7 +70,7 @@ def test_gather_report_files_exist_with_reboot(mock_find_level, mock_exists):
     assert output.report_json.get("test") == "hi"
     assert (
         output.message
-        == "System will be upgraded. Rebooting system in 1 minute. After reboot check inventory to verify the system is registered with new RHEL major version."
+        == "No problems found. System will be upgraded. Rebooting system in 1 minute. After reboot check inventory to verify the system is registered with new RHEL major version."
     )
 
 
