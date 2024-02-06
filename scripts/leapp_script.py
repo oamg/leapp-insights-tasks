@@ -11,6 +11,8 @@ JSON_REPORT_PATH = "/var/log/leapp/leapp-report.json"
 TXT_REPORT_PATH = "/var/log/leapp/leapp-report.txt"
 REBOOT_GUIDANCE_MESSAGE = "A reboot is required to continue. Please reboot your system."
 
+ALLOWED_RHEL_RELEASES = ["7", "8"]
+
 # Based on https://github.com/oamg/leapp/blob/master/report-schema-v110.json#L211
 STATUS_CODE = {
     "inhibitor": 4,
@@ -106,7 +108,7 @@ def is_non_eligible_releases(release):
     """Check if the release is eligible for upgrade or preupgrade."""
     print("Exit if not RHEL 7 or RHEL 8 ...")
     major_version, _ = release.split(".") if release is not None else (None, None)
-    return release is None or major_version not in ["7", "8"]
+    return release is None or major_version not in ALLOWED_RHEL_RELEASES
 
 
 # Code taken from
@@ -418,8 +420,11 @@ def main():
         # Exit if not eligible release
         dist, version = get_rhel_version()
         if dist != "rhel" or is_non_eligible_releases(version):
+            message = "In-place upgrades are supported only on RHEL %s." % ",".join(
+                ALLOWED_RHEL_RELEASES
+            )
             raise ProcessError(
-                message="In-place upgrades are supported only on RHEL distributions.",
+                message=message,
                 report='Exiting because distribution="%s" and version="%s"'
                 % (dist, version),
             )
