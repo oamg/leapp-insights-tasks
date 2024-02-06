@@ -49,11 +49,20 @@ def test_gather_report_files_exist(mock_find_level, mock_exists, groups_value):
     )
 
 
+@pytest.mark.parametrize(
+    ("json_report_mock"),
+    (
+        ({"entries": []}),  # no problems at all
+        ({"entries": [{"groups": [], "severity": "high"}]}),  # no inhibitors
+    ),
+)
 @patch("os.path.exists", return_value=True)
 @patch("scripts.leapp_script._find_highest_report_level", return_value="ERROR")
-def test_gather_report_files_exist_with_reboot(mock_find_level, mock_exists):
+def test_gather_report_files_exist_with_reboot(
+    mock_find_level, mock_exists, json_report_mock
+):
     test_txt_content = "Test data"
-    test_json_content = '{"test": "hi"}'
+    test_json_content = json.dumps(json_report_mock)
     output = OutputCollector()
     reboot_required = True
     with patch("__builtin__.open") as mock_open_reports:
@@ -63,11 +72,12 @@ def test_gather_report_files_exist_with_reboot(mock_find_level, mock_exists):
         )(file, mode)
         parse_results(output, reboot_required)
 
-    assert mock_find_level.call_count == 0  # entries do not exists -> []
-    assert output.status == "SUCCESS"
+    mock_entries = json_report_mock.get("entries")
+    assert mock_find_level.call_count == len(mock_entries)
+    assert output.status == "SUCCESS" if not mock_entries else "ERROR"
     assert mock_exists.call_count == 2
     assert output.report == test_txt_content
-    assert output.report_json.get("test") == "hi"
+    assert output.report_json.get("entries") == mock_entries
     assert (
         output.message
         == "No problems found. System will be upgraded. Rebooting system in 1 minute. After reboot check inventory to verify the system is registered with new RHEL major version."
