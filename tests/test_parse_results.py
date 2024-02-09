@@ -1,3 +1,5 @@
+import json
+import pytest
 from mock import mock_open, patch
 
 from scripts.leapp_script import (
@@ -6,11 +8,18 @@ from scripts.leapp_script import (
 )
 
 
+@pytest.mark.parametrize(
+    ("groups_value"),
+    (
+        ("error"),
+        ("inhibitor"),
+    ),
+)
 @patch("os.path.exists", return_value=True)
 @patch("scripts.leapp_script._find_highest_report_level", return_value="ERROR")
-def test_gather_report_files_exist(mock_find_level, mock_exists):
+def test_gather_report_files_exist(mock_find_level, mock_exists, groups_value):
     test_txt_content = "Test data"
-    test_json_content = '{"entries": [{"groups": ["error"]}]}'
+    test_json_content = json.dumps({"entries": [{"groups": [groups_value]}]})
     output = OutputCollector()
     with patch("__builtin__.open") as mock_open_reports:
         return_values = [test_json_content, test_txt_content]
@@ -19,22 +28,41 @@ def test_gather_report_files_exist(mock_find_level, mock_exists):
         )(file, mode)
         parse_results(output)
 
-    assert mock_find_level.call_count == 1  # entries do not exists -> []
+    assert mock_find_level.call_count == 1
     assert output.status == "ERROR"
     assert mock_exists.call_count == 2
     assert output.report == test_txt_content
     assert output.report_json.get("entries") is not None
+    assert output.report_json.get("entries")[0]["severity"] == "inhibitor"
+
+    num_errors = test_json_content.count("error")
+    num_inhibitor = test_json_content.count("inhibitor")
+    inhibitor_str = "%s inhibitor%s" % (
+        num_inhibitor + num_errors,
+        "" if num_inhibitor + num_errors == 1 else "s",
+    )
+
     assert (
         output.message
-        == "Your system has 1 error and 0 inhibitors out of 1 potential problem."
+        == "The upgrade cannot proceed. Your system has %s out of 1 potential problem."
+        % (inhibitor_str,)
     )
 
 
+@pytest.mark.parametrize(
+    ("json_report_mock"),
+    (
+        ({"entries": []}),  # no problems at all
+        ({"entries": [{"groups": [], "severity": "high"}]}),  # no inhibitors
+    ),
+)
 @patch("os.path.exists", return_value=True)
 @patch("scripts.leapp_script._find_highest_report_level", return_value="ERROR")
-def test_gather_report_files_exist_with_reboot(mock_find_level, mock_exists):
+def test_gather_report_files_exist_with_reboot(
+    mock_find_level, mock_exists, json_report_mock
+):
     test_txt_content = "Test data"
-    test_json_content = '{"test": "hi"}'
+    test_json_content = json.dumps(json_report_mock)
     output = OutputCollector()
     reboot_required = True
     with patch("__builtin__.open") as mock_open_reports:
@@ -44,14 +72,15 @@ def test_gather_report_files_exist_with_reboot(mock_find_level, mock_exists):
         )(file, mode)
         parse_results(output, reboot_required)
 
-    assert mock_find_level.call_count == 0  # entries do not exists -> []
-    assert output.status == "SUCCESS"
+    mock_entries = json_report_mock.get("entries")
+    assert mock_find_level.call_count == len(mock_entries)
+    assert output.status == "SUCCESS" if not mock_entries else "ERROR"
     assert mock_exists.call_count == 2
     assert output.report == test_txt_content
-    assert output.report_json.get("test") == "hi"
+    assert output.report_json.get("entries") == mock_entries
     assert (
         output.message
-        == "System will be upgraded (0 errors and 0 inhibitors out of 0 potential problems). Rebooting system in 1 minute."
+        == "No problems found. System will be upgraded. Rebooting system in 1 minute. After reboot check inventory to verify the system is registered with new RHEL major version."
     )
 
 

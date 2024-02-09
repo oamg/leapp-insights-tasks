@@ -39,26 +39,7 @@
     no_rhsm: false
     insights_signature_exclude: /hosts,/vars/insights_signature
     insights_signature: !!binary |
-      TFMwdExTMUNSVWRKVGlCUVIxQWdVMGxIVGtGVVZWSkZMUzB0TFMwS1ZtVnljMmx2YmpvZ1IyNTFV
-      RWNnZGpFS0NtbFJTV05DUVVGQ1EwRkJSMEpSU214SWRHVXdRVUZ2U2tWTmRuYzFPRVFyYWpWd1Rs
-      QnFWVkF2TVZjek5EWlpTME5yTkdKTE4ydDNiSHBQU3pGMVVqZ0tNRzU1U2xoQ2MxZDViRFJYVEdk
-      MU1ua3hWR1p1VW5wRmVEWmpSVWxXVEU1TmVFbEJjVFJzYkVaTGRVSXpSalpLUlRKTE56WlhSR3hH
-      YkRVMFJIVlNUZ3AxVml0MGFYcFZTWE50TDJaSVUyUXZTM013TWtKeWJscG1VbVZpU25kbFRXOTZO
-      Mjl2VGxabGJFNXZOV1pXTlhsb2R6SkljVVJQZUZReWVGSk9OSE0wQ25wRU9XNU9lblpPV2xBMUsx
-      bFFURW8zWlV0VWFETTFMMVJtVGxwWVRsZEJXVE52U3pCVVpDOVNRM05TZWtwcWNUWkdkVlZuYVRC
-      RWJHUjZTMWMyYmxrS1F6ZFdMMHh5YlhsMFV6RjJaQ3RsY0ZKbGRHNTBVME5oYURGNEsyaFNWWEJ1
-      TjFJMmFWbG9TVlEzYldGeVduVmpVWEpVV1RWM2FYZE9aM0ZXZDNKbVp3bzFNMDlLT1dRNU9GRm9X
-      a1pMUzB4TWNFcHpZa0l5UjA5QldtNTJkbUo2UVRjeWN5dElXVXhPVkhCTVNFRlVSSGhRTmpFdmNr
-      NUpaemxIWlhWM1oydFZDa1YzTHpkRldsTXpOSFpUYVdSYVZVMVBXV1o2VTBJeldqUllXbk5sVEhO
-      NFFVc3pOMng2Y1U4elpFTjVWbk5wWVdOMVVWVklaV3hRTUZaNlNURk9la2tLVGxoVFprWjFaM3Ax
-      WTJKSmNFbDJNek5UWm5SdGFVRkJUVTFtYkVwWmVsVjJMemhwWmpWUldVdGxTbHBYVjBGRFVIVm5k
-      MXBGWlRSQlZEVXpOekZuYkFwRE5FbDZNalowYm5aTlRHdGpRa3hEWjIxaFpTOVBUbUkwTUROTWFr
-      TnNSa1ZJTUV0aVduUnJhV2xxVlc1MGNWbHZURlJhZGtJM09VdHdibFJEZDJWcUNub3ZkRGR3V1V0
-      aU5sbFhZbEJTZEZOdU9HbERSamM1UmxaRFpURlJMMHhMUmpGVVVVbHlXRVpKTDJ4NFlUaHZNSGRU
-      TjFsRGJrUXJiRGxDVDJwMVFuY0tibE5NY0ZoeWQwMXdaVWN6YjBKYVQyMWxhV05RTW5WVVpFUlJV
-      MWxXTkV0TU9WSTRORGwwUkVkaE5YUnJlRk5IVTFsamVXVklVRTlwYW01SlpXeENVd3AwYkZkbmVu
-      RTRSR2t3UTA5c09GbDRZa2t6VEFvOWMzSXhSd290TFMwdExVVk9SQ0JRUjFBZ1UwbEhUa0ZVVlZK
-      RkxTMHRMUzBL
+      ascii_armored gpg signature
   tasks:
     - name: Exit for non-eligible releases
       ansible.builtin.meta: end_host
@@ -174,6 +155,10 @@
           ansible.builtin.set_fact:
             report_content: "{{ report_content_raw.content | b64decode }}"
 
+        - name: Set total problems count
+          ansible.builtin.set_fact:
+            total_problems_count: "{{ report_content.entries | length }}"
+
         - name: Set inhibitor count
           ansible.builtin.set_fact:
             inhibitor_count: "{{ report_content.entries | selectattr('groups', 'defined') | selectattr('groups', 'contains', 'inhibitor') | list | length }}"
@@ -182,12 +167,56 @@
           ansible.builtin.set_fact:
             error_count: "{{ report_content.entries | selectattr('groups', 'defined') | selectattr('groups', 'contains', 'error') | list | length }}"
 
+        - name: Init new empty entries for edited severity
+          ansible.builtin.set_fact:
+            report_content_edited: >-
+              {{
+                {
+                  "entries": []
+                }
+              }}
+
+        - name: Transform severities in leapp report to distinguish errors and inhibitors from other high risks entries
+          set_fact:
+            report_content_edited: >-
+              {{
+                report_content_edited | combine(
+                  {
+                    "entries": report_content_edited.entries | default([]) +
+                      [
+                        entry | combine(
+                          {"severity": "inhibitor"} if "error" in entry.groups | default([]) else
+                          {"severity": "inhibitor"} if "inhibitor" in entry.groups | default([]) else {}
+                        )
+                      ]
+                  }
+                )
+              }}
+          loop: "{{ report_content.entries | default([]) }}"
+          loop_control:
+            loop_var: entry
+
+        - name: Set message if inhibitors or errors present
+          set_fact:
+            message: >-
+              "The upgrade cannot proceed. Your system has {{ error_count | int + inhibitor_count | int }} inhibitor{{ 's' if inhibitor_count | int + error_count | int != 1 else '' }}
+              out of {{ total_problems_count }} potential problems."
+          when: inhibitor_count != "0" or error_count != "0"
+
+
+        - name: Set message if no inhibitors and no errors present
+          set_fact:
+            message: >-
+              {{ 'No problems found. The system is ready for upgrade.' if  total_problems_count == 0
+              else 'The upgrade can proceed. However, there is one or more warnings about issues that might occur after the upgrade.'}}
+          when: inhibitor_count == "0" and error_count == "0"
+
         - name: Set result
           ansible.builtin.set_fact:
             task_results:
-              report_json: "{{ report_content }}"
+              report_json: "{{ report_content_edited }}"
               report: "{{ report_content_txt_raw.content | b64decode }}"
-              message: "Your system has {{ error_count }} errors and {{ inhibitor_count }} inhibitors out of {{report_content.entries | length}} potential problems."
+              message: "{{ message }}"
               alert: "{{ (inhibitor_count | int > 0) or (error_count | int > 0) }}"
 
     - name: Start insights-client for immediate data collection of leapp-report

@@ -18,14 +18,18 @@
       TXT_REPORT_PATH = "/var/log/leapp/leapp-report.txt"
       REBOOT_GUIDANCE_MESSAGE = "A reboot is required to continue. Please reboot your system."
 
+      ALLOWED_RHEL_RELEASES = ["7", "8"]
+
       # Based on https://github.com/oamg/leapp/blob/master/report-schema-v110.json#L211
       STATUS_CODE = {
+          "inhibitor": 4,
           "high": 3,
           "medium": 2,
           "low": 1,
           "info": 0,
       }
       STATUS_CODE_NAME_MAP = {
+          "inhibitor": "ERROR",
           "high": "ERROR",
           "medium": "WARNING",
           "low": "WARNING",
@@ -111,7 +115,7 @@
           """Check if the release is eligible for upgrade or preupgrade."""
           print("Exit if not RHEL 7 or RHEL 8 ...")
           major_version, _ = release.split(".") if release is not None else (None, None)
-          return release is None or major_version not in ["7", "8"]
+          return release is None or major_version not in ALLOWED_RHEL_RELEASES
 
 
       # Code taken from
@@ -308,9 +312,7 @@
           Gather status codes from entries.
           """
           print("Collecting and combining report status.")
-          action_level_combined = []
-          for value in entries:
-              action_level_combined.append(value["severity"])
+          action_level_combined = [value["severity"] for value in entries]
 
           valid_action_levels = [
               level for level in action_level_combined if level in STATUS_CODE
@@ -333,29 +335,44 @@
                   report_json = json.load(handler)
 
               report_entries = report_json.get("entries", [])
+              for entry in report_entries:
+                  groups = entry.get("groups", [])
+                  # NOTE: "severity" key in report is connected to tasks-frontend severity maps
+                  # Every change must come with change to severity maps otherwise UI will throw sentry errors
+                  if "error" in groups:
+                      entry["severity"] = "inhibitor"
+                  elif "inhibitor" in groups:
+                      entry["severity"] = "inhibitor"
 
+              total_problems_count = len(report_entries)
               error_count = len(
                   [entry for entry in report_entries if "error" in entry.get("groups")]
               )
               inhibitor_count = len(
                   [entry for entry in report_entries if "inhibitor" in entry.get("groups")]
               )
-              message = (
-                  "Your system has %s error%s and %s inhibitor%s out of %s potential problem%s."
-                  % (
-                      error_count,
-                      "" if error_count == 1 else "s",
-                      inhibitor_count,
-                      "" if inhibitor_count == 1 else "s",
-                      len(report_entries),
-                      "" if len(report_entries) == 1 else "s",
-                  )
-              )
-              if reboot_required:
-                  problem_info = message.lstrip("Your system has ").rstrip(".")
+
+              if inhibitor_count == 0 and error_count == 0:
+                  if total_problems_count == 0:
+                      message = "No problems found. The system is ready for upgrade."
+                  else:
+                      message = "The upgrade can proceed. However, there is one or more warnings about issues that might occur after the upgrade."
+              else:
                   message = (
-                      "System will be upgraded (%s). Rebooting system in 1 minute."
-                      % problem_info
+                      "The upgrade cannot proceed. "
+                      "Your system has %s inhibitor%s out of %s potential problem%s."
+                      % (
+                          inhibitor_count + error_count,
+                          "" if inhibitor_count + error_count == 1 else "s",
+                          len(report_entries),
+                          "" if len(report_entries) == 1 else "s",
+                      )
+                  )
+
+              if reboot_required:
+                  message = (
+                      "No problems found. System will be upgraded. Rebooting system in 1 minute. "
+                      "After reboot check inventory to verify the system is registered with new RHEL major version."
                   )
               alert = inhibitor_count > 0 or error_count > 0
               status = (
@@ -372,7 +389,7 @@
           print("Reading TXT report")
           report_txt = "Not found"
           if os.path.exists(TXT_REPORT_PATH):
-              with open(JSON_REPORT_PATH, mode="r") as handler:
+              with open(TXT_REPORT_PATH, mode="r") as handler:
                   report_txt = handler.read()
 
           output.report = report_txt
@@ -410,8 +427,11 @@
               # Exit if not eligible release
               dist, version = get_rhel_version()
               if dist != "rhel" or is_non_eligible_releases(version):
+                  message = "In-place upgrades are supported only on RHEL %s." % ",".join(
+                      ALLOWED_RHEL_RELEASES
+                  )
                   raise ProcessError(
-                      message="In-place upgrades are supported only on RHEL distributions.",
+                      message=message,
                       report='Exiting because distribution="%s" and version="%s"'
                       % (dist, version),
                   )

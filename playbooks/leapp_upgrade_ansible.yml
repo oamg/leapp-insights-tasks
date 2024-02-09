@@ -39,27 +39,8 @@
     no_rhsm: false
     is_leapp_upgrade_successful: false
     insights_signature_exclude: /hosts,/vars/insights_signature
-    insights_signature: !!binary |
-      TFMwdExTMUNSVWRKVGlCUVIxQWdVMGxIVGtGVVZWSkZMUzB0TFMwS1ZtVnljMmx2YmpvZ1IyNTFV
-      RWNnZGpFS0NtbFJTV05DUVVGQ1EwRkJSMEpSU214SWRHVm9RVUZ2U2tWTmRuYzFPRVFyYWpWd1Rr
-      NHhUVkZCU20welYyMTRWRXhxUjJGSFdXMHpaRk5EZFM5MU5EWUtORGRoYUcxSE1TdERlV3hZU21S
-      U2JuSTFSRE4zWWpJd1JVRkVOVGR3YmtGSkwyNDBaakJLZHpoVGNFeENabUZ3YldOd2RHRlNTMVJ6
-      UW1WRVNVMHJZUXB6WVRFd09FdzVPQ3RLUVhBNU16RkNjMFl2UlZaSWJtd3dkVmRhTHpaaVJ6UlNO
-      R0ZxUW5GQldEUXhkamhwWkU1R2VWSjBNSFpSVld0QmNTOVVOV2R5Q25Vd1ZFeEhhMVp5VjI5MWJU
-      UTRaRkZCV2lzeFQyMHlTMWQxVFhvM1VGaHhlbk50YjJSVFNFdDVWeXRTTmt4SFdVZ3hTRWgzYkZj
-      eGJXdDFjbG8yZGpJS2NqUldiRTB3UjBKdlZVOWplVFp0YVhCMFoweE5OREZhTTFaSU9XaEllalF2
-      V1VGUVRIbFlkRlZwTjBjeU5qaEZWSEpMVjBneGNISnNMMnh1Vm14TlRBcFROV0o1ZDNwR1MwcFNl
-      U3RIU1ZaS1pFOTVSRWxIVVhaUFQyMW9aMFIwV21velJGQnRlVU0xVVVGQ05WSlVSMHhtVFN0dlVG
-      cE9NM2REYkZkNGEzRkJDa1Z5VnpZNFRGSXJOMGxzUlUxeWRHdEhSMHh0ZURGTlJFOHZWelZ4WmxG
-      RVNGcDNka3RSYjJGak1pOHliMUpKYTFZM2J6aENNSEE0U0c5R2MyNTJaVmtLVkdsWGNVTlpiRVp0
-      V0VWTWEybHNaRkl5Umpsa01WWk5kR293TmpsQmIzTkJSSFJGZW1kUmVsUlRWVEpQVFhoc1MyNXlX
-      RlJDY1hwc01XaHBNV2hGVHdvNE9WVkdhRWRHUWtSMFVrMWxaRlpUVlRSYWFqTm1ZVkJSYUdOQmNt
-      cGlkRzk1ZDFSMFVFdEJPRWRGYlhjNFNVRnNaMEZGT1V0UWJWWnNVa3RHY2l0aENqUXpZVmxYYkc1
-      d2RHWmhkRk5QWkhsMVFrRmpiREF5VlVaR1NUQTNTR1Z3VVZadFNTdEdaa1pvYnpVMVltVXJLMHQz
-      Tkd4VlFrOXdWbm9yVTBSUlVIUUtaSHBtZFVoSFFWWm9ZMm8xVDJZdmIxWmhSVW95WlhaeE9FODJa
-      MUJ0YjJWUGJFRmhlbTVEU3pkU1VEbGFjMVpMWTFkMWRYaEtRa1JNTkVOS1RFOVZRd3BVWTBvNVFu
-      bzVXbkU0UW10TWRtVnZia1JrY0FvOVJsZFBUUW90TFMwdExVVk9SQ0JRUjFBZ1UwbEhUa0ZVVlZK
-      RkxTMHRMUzBL
+    insights_signature: |
+      ascii_armored gpg signature
   tasks:
     - name: Exit for non-eligible releases
       ansible.builtin.meta: end_host
@@ -176,27 +157,72 @@
           ansible.builtin.set_fact:
             report_content: "{{ report_content_raw.content | b64decode }}"
 
+        - name: Set total problems count
+          ansible.builtin.set_fact:
+            total_problems_count: "{{ report_content.entries | length }}"
+
+        - name: Set inhibitor count
+          ansible.builtin.set_fact:
+            inhibitor_count: "{{ report_content.entries | selectattr('groups', 'defined') | selectattr('groups', 'contains', 'inhibitor') | list | length }}"
+
+        - name: Set errors count
+          ansible.builtin.set_fact:
+            error_count: "{{ report_content.entries | selectattr('groups', 'defined') | selectattr('groups', 'contains', 'error') | list | length }}"
+
+        - name: Init new empty entries for report with edited severity
+          ansible.builtin.set_fact:
+            report_content_edited: >-
+              {{
+                {
+                  "entries": []
+                }
+              }}
+
+        - name: Transform severities in leapp report to distinguish errors and inhibitors from other high risks entries
+          set_fact:
+            report_content_edited: >-
+              {{
+                report_content_edited | combine(
+                  {
+                    "entries": report_content_edited.entries | default([]) +
+                      [
+                        entry | combine(
+                          {"severity": "inhibitor"} if "error" in entry.groups | default([]) else
+                          {"severity": "inhibitor"} if "inhibitor" in entry.groups | default([]) else {}
+                        )
+                      ]
+                  }
+                )
+              }}
+          loop: "{{ report_content.entries | default([]) }}"
+          loop_control:
+            loop_var: entry
+
     - name: Prepare final result
       block:
         - name: Set default fail message
           set_fact:
-            message: "Upgrade of your system failed. Please check the /var/log/leapp/leapp-report.json and /var/log/rhc-worker-playbook/ansible logs for details."
+            message: >-
+              "The upgrade cannot proceed.
+              Your system has {{ error_count | int + inhibitor_count | int }} inhibitor{{ 's' if inhibitor_count | int + error_count | int != 1 else '' }}
+              out of {{ total_problems_count }} potential problems."
 
         - name: Set message if leapp upgrade succeeded
           set_fact:
-            message: "Upgrade ran successfully. System has now been rebooted. If everything works fine, the system is running the new RHEL version after reboot. Check inventory to verify the system is\
-              \ in new major version."
+            message: >-
+              "No problems found. The system will be upgraded. Rebooting system in 1 minute.
+              After reboot check inventory to verify the RHEL system is registered with new major version."
           when: is_leapp_upgrade_successful is true
 
         - name: Set report content as empty if upgrade was successful
           set_fact:
-            report_content: ""
+            report_content_edited: ""
           when: is_leapp_upgrade_successful is true
 
         - name: Set result
           ansible.builtin.set_fact:
             task_results:
-              report_json: "{{ report_content }}"
+              report_json: "{{ report_content_edited }}"
               report: "{{ report_content_txt_raw.content | b64decode }}"
               message: "{{ message }}"
               alert: "{{ not is_leapp_upgrade_successful }}"
