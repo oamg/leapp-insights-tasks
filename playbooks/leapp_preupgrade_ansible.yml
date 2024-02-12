@@ -199,8 +199,8 @@
         - name: Set message if inhibitors or errors present
           set_fact:
             message: >-
-              "The upgrade cannot proceed. Your system has {{ error_count | int + inhibitor_count | int }} inhibitor{{ 's' if inhibitor_count | int + error_count | int != 1 else '' }}
-              out of {{ total_problems_count }} potential problems."
+              The upgrade cannot proceed. Your system has {{ error_count | int + inhibitor_count | int }} inhibitor{{ 's' if inhibitor_count | int + error_count | int != 1 else '' }}
+              out of {{ total_problems_count }} potential problems.
           when: inhibitor_count != "0" or error_count != "0"
 
 
