@@ -203,15 +203,15 @@
         - name: Set default fail message
           set_fact:
             message: >-
-              "The upgrade cannot proceed.
+              The upgrade cannot proceed.
               Your system has {{ error_count | int + inhibitor_count | int }} inhibitor{{ 's' if inhibitor_count | int + error_count | int != 1 else '' }}
-              out of {{ total_problems_count }} potential problems."
+              out of {{ total_problems_count }} potential problems.
 
         - name: Set message if leapp upgrade succeeded
           set_fact:
             message: >-
-              "No problems found. The system will be upgraded. Rebooting system in 1 minute.
-              After reboot check inventory to verify the RHEL system is registered with new major version."
+              No problems found. The system will be upgraded. Rebooting system in 1 minute.
+              After reboot check inventory to verify the RHEL system is registered with new major version.
           when: is_leapp_upgrade_successful is true
 
         - name: Set report content as empty if upgrade was successful
