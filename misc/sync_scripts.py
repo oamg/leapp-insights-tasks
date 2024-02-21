@@ -5,8 +5,8 @@ import ruamel.yaml
 # Scripts located in this project
 SCRIPT_PATH = "scripts/leapp_script.py"
 
-REPO_PRE_UPGRADE_YAML_PATH = os.path.join(".", "playbooks/leapp_preupgrade_script.yaml")
-REPO_UPGRADE_YAML_PATH = os.path.join(".", "playbooks/leapp_upgrade_script.yaml")
+REPO_PRE_UPGRADE_YAML_PATH = os.path.join(".", "playbooks/leapp_preupgrade_script.yml")
+REPO_UPGRADE_YAML_PATH = os.path.join(".", "playbooks/leapp_upgrade_script.yml")
 
 WORKER_PRE_UPGRADE_YAML_PATH = os.path.join(
     "..", "rhc-worker-script/development/nginx/data/leapp_preupgrade.yml"
