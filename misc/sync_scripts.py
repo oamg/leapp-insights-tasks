@@ -20,7 +20,7 @@ DEFAULT_YAML_ENVELOPE = """
   vars:
     insights_signature: |
       ascii_armored gpg signature
-    insights_signature_exclude: /vars/insights_signature,/vars/content_vars
+    insights_signature_exclude: /vars/insights_signature
     interpreter: /usr/bin/python
     content: |
       placeholder
