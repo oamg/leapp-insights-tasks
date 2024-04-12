@@ -52,6 +52,10 @@
       package_facts:
         manager: auto
 
+    - name: Set initial findings level
+      set_fact:
+        findings_level: 1
+
     - name: Set rhui_packages_found to empty list
       set_fact:
         rhui_packages_found: []
@@ -203,6 +207,15 @@
               out of {{ total_problems_count }} potential problems.
           when: inhibitor_count != "0" or error_count != "0"
 
+        - name: Set findings level based on inhibitor count
+          set_fact:
+            findings_level: 5
+          when: inhibitor_count != "0"
+
+        - name: Set findings level based on error count
+          set_fact:
+            findings_level: 7
+          when: error_count != "0"
 
         - name: Set message if no inhibitors and no errors present
           set_fact:
@@ -218,6 +231,7 @@
               report: "{{ report_content_txt_raw.content | b64decode }}"
               message: "{{ message }}"
               alert: "{{ (inhibitor_count | int > 0) or (error_count | int > 0) }}"
+              findings_level: "{{ findings_level }}"
 
     - name: Start insights-client for immediate data collection of leapp-report
       ansible.builtin.shell: insights-client >/dev/null 2>&1 &
