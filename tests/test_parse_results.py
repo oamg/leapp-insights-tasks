@@ -9,79 +9,72 @@ from scripts.leapp_script import (
 
 
 @pytest.mark.parametrize(
-    ("groups_value"),
+    ("groups", "severity", "is_upgrade_reboot_needed"),
     (
-        ("error"),
-        ("inhibitor"),
+        (["error"], "high", False),
+        (["inhibitor"], "high", False),
+        ([], 'info', False),
+        (None, None, False), # no entries = success preupgrade
+        (None, None, True) # no entries + reboot = success upgrade
     ),
 )
 @patch("os.path.exists", return_value=True)
-@patch("scripts.leapp_script._find_highest_report_level", return_value="ERROR")
-def test_gather_report_files_exist(mock_find_level, mock_exists, groups_value):
+def test_gather_report_files_exist(mock_exists, groups, severity, is_upgrade_reboot_needed):
     test_txt_content = "Test data"
-    test_json_content = json.dumps({"entries": [{"groups": [groups_value]}]})
+
+    no_entries = groups is None and severity is None
+    if no_entries:
+        test_json_content = json.dumps({"entries": []})
+    else:
+        test_json_content = json.dumps({"entries": [{"groups": groups, "severity": severity}]})
     output = OutputCollector()
+
     with patch("__builtin__.open") as mock_open_reports:
         return_values = [test_json_content, test_txt_content]
         mock_open_reports.side_effect = lambda file, mode: mock_open(
             read_data=return_values.pop(0)
         )(file, mode)
-        parse_results(output)
+        parse_results(output, is_upgrade_reboot_needed)
 
-    assert mock_find_level.call_count == 1
-    assert output.status == "ERROR"
+    # JSON and TXT report
     assert mock_exists.call_count == 2
     assert output.report == test_txt_content
-    assert output.report_json.get("entries") is not None
-    assert output.report_json.get("entries")[0]["severity"] == "inhibitor"
 
-    num_errors = test_json_content.count("error")
-    num_inhibitor = test_json_content.count("inhibitor")
-    inhibitor_str = "%s inhibitor%s" % (
-        num_inhibitor + num_errors,
-        "" if num_inhibitor + num_errors == 1 else "s",
-    )
+    if no_entries:
+        assert output.status == "SUCCESS"
+    else:
+        assert output.status == "INFO" if severity == "info" else "ERROR"
+        # NOTE: If groups contains error or inhibitor
+        # parse_results should replace severity value with 'inhibitor' to distinguish it in UI
+        assert output.report_json.get("entries")[0]["severity"] == "info" if severity == "info" else "inhibitor"
 
-    assert (
-        output.message
-        == "The upgrade cannot proceed. Your system has %s out of 1 potential problem."
-        % (inhibitor_str,)
-    )
-
-
-@pytest.mark.parametrize(
-    ("json_report_mock"),
-    (
-        ({"entries": []}),  # no problems at all
-        ({"entries": [{"groups": [], "severity": "high"}]}),  # no inhibitors
-    ),
-)
-@patch("os.path.exists", return_value=True)
-@patch("scripts.leapp_script._find_highest_report_level", return_value="ERROR")
-def test_gather_report_files_exist_with_reboot(
-    mock_find_level, mock_exists, json_report_mock
-):
-    test_txt_content = "Test data"
-    test_json_content = json.dumps(json_report_mock)
-    output = OutputCollector()
-    reboot_required = True
-    with patch("__builtin__.open") as mock_open_reports:
-        return_values = [test_json_content, test_txt_content]
-        mock_open_reports.side_effect = lambda file, mode: mock_open(
-            read_data=return_values.pop(0)
-        )(file, mode)
-        parse_results(output, reboot_required)
-
-    mock_entries = json_report_mock.get("entries")
-    assert mock_find_level.call_count == len(mock_entries)
-    assert output.status == "SUCCESS" if not mock_entries else "ERROR"
-    assert mock_exists.call_count == 2
-    assert output.report == test_txt_content
-    assert output.report_json.get("entries") == mock_entries
-    assert (
-        output.message
-        == "No problems found. System will be upgraded. Rebooting system in 1 minute. After reboot check inventory to verify the system is registered with new RHEL major version."
-    )
+    # Message + level
+    if severity is None: # no entries in report at all
+        if is_upgrade_reboot_needed:
+            assert output.message == "No problems found. System will be upgraded. Rebooting system in 1 minute. After reboot check inventory to verify the system is registered with new RHEL major version."
+        else:
+            assert output.message == "No problems found. The system is ready for upgrade."
+        assert output.findings_level == 1
+    elif severity != "info":
+        num_errors = test_json_content.count("error")
+        num_inhibitor = test_json_content.count("inhibitor")
+        inhibitor_str = "%s inhibitor%s" % (
+            num_inhibitor + num_errors,
+            "" if num_inhibitor + num_errors == 1 else "s",
+        )
+        assert (
+            output.message
+            == "The upgrade cannot proceed. Your system has %s out of 1 potential problem."
+            % (inhibitor_str,)
+        )
+        assert output.findings_level == 7 if "error" in groups else 5
+    else: # high, medium, low and info priorities
+        # TODO: how about low, medium and high severity? Upgrade can proceed in those cases but should findings level change?
+        assert (
+            output.message
+            == "The upgrade can proceed. However, there is one or more warnings about issues that might occur after the upgrade."
+        )
+        assert output.findings_level == 1
 
 
 @patch("os.path.exists", return_value=False)
@@ -95,3 +88,6 @@ def test_gather_report_files_not_exist(mock_exists):
     assert output.report != ""
     assert output.report_json != ""
     assert output.message != ""
+
+    # TODO: Should it be different when we for some reason can't find the report files?
+    assert output.findings_level == 1

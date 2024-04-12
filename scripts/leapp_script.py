@@ -49,10 +49,11 @@ class OutputCollector(object):
     # Nine and six is reasonable in this case.
 
     def __init__(
-        self, status="", message="", report="", entries=None, alert=False, error=False
+        self, status="", message="", report="", entries=None, alert=False, error=False, findings_level=1,
     ):
-        self.status = status
+        self.status = status # empty default, to be set based on script results
         self.alert = alert  # true if error true or if pre-upgrade inhibited
+        self.findings_level = findings_level # value between 1-10
 
         # NOTE: currently false everywhere
         # here for consistency with conversions scripts
@@ -81,6 +82,7 @@ class OutputCollector(object):
             "status": self.status,
             "alert": self.alert,
             "error": self.error,
+            "findings_level": self.findings_level,
             "message": self.message,
             "report": self.report,
             "report_json": self.report_json,
@@ -305,14 +307,9 @@ def _find_highest_report_level(entries):
     Gather status codes from entries.
     """
     print("Collecting and combining report status.")
-    action_level_combined = [value["severity"] for value in entries]
-
-    valid_action_levels = [
-        level for level in action_level_combined if level in STATUS_CODE
-    ]
-    valid_action_levels.sort(key=lambda status: STATUS_CODE[status], reverse=True)
-    return STATUS_CODE_NAME_MAP[valid_action_levels[0]]
-
+    valid_entries_levels = [value["severity"] for value in entries if value["severity"] in STATUS_CODE]
+    valid_entries_levels.sort(key=lambda status: STATUS_CODE[status], reverse=True)
+    return STATUS_CODE_NAME_MAP[valid_entries_levels[0]]
 
 def parse_results(output, reboot_required=False):
     print("Processing {} results ...".format(SCRIPT_TYPE.title()))
@@ -321,6 +318,7 @@ def parse_results(output, reboot_required=False):
     message = "Can't open json report at " + JSON_REPORT_PATH
     alert = True
     status = "ERROR"
+    findings_level = 1
 
     print("Reading JSON report")
     if os.path.exists(JSON_REPORT_PATH):
@@ -361,6 +359,10 @@ def parse_results(output, reboot_required=False):
                     "" if len(report_entries) == 1 else "s",
                 )
             )
+            if error_count > 0:
+                findings_level = 7
+            if inhibitor_count > 0:
+                findings_level = 5
 
         if reboot_required:
             message = (
@@ -378,6 +380,7 @@ def parse_results(output, reboot_required=False):
     output.report_json = report_json
     output.alert = alert
     output.message = message
+    output.findings_level = findings_level
 
     print("Reading TXT report")
     report_txt = "Not found"
@@ -456,6 +459,7 @@ def main():
             error=False,
             message=exception.message,
             report=exception.report,
+            findings_level=7,
         )
     except Exception as exception:
         print(str(exception))
@@ -465,6 +469,7 @@ def main():
             error=False,
             message="An unexpected error occurred. Expand the row for more details.",
             report=str(exception),
+            findings_level=10,
         )
     finally:
         print("### JSON START ###")
