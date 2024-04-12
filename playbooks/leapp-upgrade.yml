@@ -207,6 +207,16 @@
               Your system has {{ error_count | int + inhibitor_count | int }} inhibitor{{ 's' if inhibitor_count | int + error_count | int != 1 else '' }}
               out of {{ total_problems_count }} potential problems.
 
+        - name: Set findings level based on inhibitor count
+          set_fact:
+            findings_level: 5
+          when: inhibitor_count != "0"
+
+        - name: Set findings level based on error count
+          set_fact:
+            findings_level: 7
+          when: error_count != "0"
+
         - name: Set message if leapp upgrade succeeded
           set_fact:
             message: >-
@@ -226,6 +236,7 @@
               report: "{{ report_content_txt_raw.content | b64decode }}"
               message: "{{ message }}"
               alert: "{{ not is_leapp_upgrade_successful }}"
+              findings_level: "{{ findings_level }}"
 
     - name: Start insights-client for immediate data collection of leapp-report
       ansible.builtin.shell: insights-client >/dev/null 2>&1
