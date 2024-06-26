@@ -294,8 +294,17 @@ def remove_previous_reports():
 
 
 def execute_operation(command):
+    new_env = {}
+    for key, value in os.environ.items():
+        valid_prefix = "RHC_WORKER_"
+        if key.startswith(valid_prefix):
+            # This also removes multiple valid prefixes
+            new_env[key.replace(valid_prefix, "")] = value
+        else:
+            new_env[key] = value
+
     print("Executing {} ...".format(SCRIPT_TYPE.title()))
-    output, _ = run_subprocess(command)
+    output, _ = run_subprocess(command, env=new_env)
 
     return output
 
