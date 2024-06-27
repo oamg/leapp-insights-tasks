@@ -1,49 +1,50 @@
+import sys
 import os
-import argparse
 import ruamel.yaml
+
+# Get the last argument used in the commandline if available, otherwise, use
+# "worker" as the default value.
+SYNC_PROJECT = sys.argv[1:][-1] if sys.argv[1:] else "worker"
 
 # Scripts located in this project
 SCRIPT_PATH = "scripts/leapp_script.py"
 
-REPO_PRE_UPGRADE_YAML_PATH = os.path.join(".", "playbooks/leapp_preupgrade_script.yml")
-REPO_UPGRADE_YAML_PATH = os.path.join(".", "playbooks/leapp_upgrade_script.yml")
-
-WORKER_PRE_UPGRADE_YAML_PATH = os.path.join(
-    "..", "rhc-worker-script/development/nginx/data/leapp_preupgrade.yml"
-)
-WORKER_UPGRADE_YAML_PATH = os.path.join(
-    "..", "rhc-worker-script/development/nginx/data/leapp_upgrade.yml"
-)
-
-DEFAULT_YAML_ENVELOPE = """
-- name: LEAPP
-  vars:
-    insights_signature: |
-      ascii_armored gpg signature
-    insights_signature_exclude: /vars/insights_signature
-    interpreter: /usr/bin/python
-    content: |
-      placeholder
-    content_vars:
-      # variables that will be handed to the script as environment vars
-      # will be prefixed with RHC_WORKER_*
-      LEAPP_SCRIPT_TYPE: type
-"""
+SCRIPTS_YAML_PATH = {
+    # TODO(r0x0d): Deprecate this in the future
+    "worker": (
+        os.path.join(
+            "..", "rhc-worker-script/development/nginx/data/leapp_preupgrade_script.yml"
+        ),
+        os.path.join(
+            "..", "rhc-worker-script/development/nginx/data/leapp_upgrade_script.yml"
+        ),
+    ),
+    "tasks": (
+        "playbooks/leapp_preupgrade_script.yml",
+        "playbooks/leapp_upgrade_script.yml",
+    ),
+    "advisor": (
+        os.path.join(
+            "..",
+            "advisor-backend/api/advisor/tasks/playbooks/leapp_preupgrade_script.yml",
+        ),
+        os.path.join(
+            "..",
+            "advisor-backend/api/advisor/tasks/playbooks/leapp_upgrade_script.yml",
+        ),
+    ),
+}
 
 
 def _get_updated_yaml_content(yaml_path, script_path):
     if not os.path.exists(yaml_path):
-        yaml = ruamel.yaml.YAML()
-        config = yaml.load(DEFAULT_YAML_ENVELOPE)
-        mapping = 2
-        offset = 0
-    else:
-        config, mapping, offset = ruamel.yaml.util.load_yaml_guess_indent(
-            open(yaml_path)
-        )
-        print(mapping, offset)
+        raise SystemExit(f"Couldn't find yaml file: {yaml_path}")
 
-    with open(script_path) as script:
+    config, mapping, offset = ruamel.yaml.util.load_yaml_guess_indent(
+        open(yaml_path, encoding="utf-8")
+    )
+
+    with open(script_path, encoding="utf-8") as script:
         content = script.read()
 
     script_type = "PREUPGRADE" if "preupgrade" in yaml_path else "UPGRADE"
@@ -57,36 +58,24 @@ def _write_content(config, path, mapping=None, offset=None):
     yaml = ruamel.yaml.YAML()
     if mapping and offset:
         yaml.indent(mapping=mapping, sequence=mapping, offset=offset)
-    with open(path, "w") as handler:
+    with open(path, "w", encoding="utf-8") as handler:
         yaml.dump(config, handler)
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--target",
-        choices=["repo", "worker"],
-        help="Target to sync scripts to",
-        default="worker",
-    )
-    args = parser.parse_args()
+    if SYNC_PROJECT not in ("worker", "advisor", "tasks"):
+        raise SystemExit(
+            f"'{SYNC_PROJECT}' not recognized. Valid values are 'worker' or 'advisor'"
+        )
 
-    if args.target == "repo":
-        print("Syncing scripts to repo")
-        pre_upgrade_path = REPO_PRE_UPGRADE_YAML_PATH
-        upgrade_path = REPO_UPGRADE_YAML_PATH
+    analysis_script, conversion_script = SCRIPTS_YAML_PATH[SYNC_PROJECT]
 
-    elif args.target == "worker":
-        print("Syncing scripts to worker")
-        pre_upgrade_path = WORKER_PRE_UPGRADE_YAML_PATH
-        upgrade_path = WORKER_UPGRADE_YAML_PATH
-
-    config, mapping, offset = _get_updated_yaml_content(pre_upgrade_path, SCRIPT_PATH)
-    print("Writing new content to %s" % pre_upgrade_path)
-    _write_content(config, pre_upgrade_path, mapping, offset)
-    config, mapping, offset = _get_updated_yaml_content(upgrade_path, SCRIPT_PATH)
-    print("Writing new content to %s" % upgrade_path)
-    _write_content(config, upgrade_path, mapping, offset)
+    config, mapping, offset = _get_updated_yaml_content(analysis_script, SCRIPT_PATH)
+    print(f"Writing new content to {analysis_script}")
+    _write_content(config, analysis_script, mapping, offset)
+    config, mapping, offset = _get_updated_yaml_content(conversion_script, SCRIPT_PATH)
+    print(f"Writing new content to {conversion_script}")
+    _write_content(config, conversion_script, mapping, offset)
 
 
 if __name__ == "__main__":

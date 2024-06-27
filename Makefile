@@ -30,3 +30,9 @@ install: install-deps pre-commit
 tests: install-deps
 	. $(PYTHON_VENV)/bin/activate; \
 	$(PYTEST_CALL)
+
+sync: install-deps
+	python misc/sync_scripts.py worker
+
+sync-advisor: install-deps
+	python misc/sync_scripts.py advisor
