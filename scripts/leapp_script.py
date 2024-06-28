@@ -1,6 +1,12 @@
 import json
+import logging
 import os
+import shutil
+import sys
 import subprocess
+
+from time import gmtime, strftime
+
 
 # SCRIPT_TYPE is either 'PREUPGRADE' or 'UPGRADE'
 # Value is set in signed yaml envelope in content_vars (RHC_WORKER_LEAPP_SCRIPT_TYPE)
@@ -30,8 +36,24 @@ STATUS_CODE_NAME_MAP = {
 }
 
 
-# Both classes taken from:
-# https://github.com/oamg/convert2rhel-worker-scripts/blob/main/scripts/preconversion_assessment_script.py
+# Path to store the script logs
+LOG_DIR = "/var/log/leapp-insights-tasks"
+# Log filename for the script. It will be created based on the script type of
+# execution.
+LOG_FILENAME = "leapp-insights-tasks-%s.log" % (
+    "upgrade" if IS_UPGRADE else "preupgrade"
+)
+
+# Path to the sos extras folder
+SOS_REPORT_FOLDER = "/etc/sos.extras.d"
+# Name of the file based on the task type for sos report
+SOS_REPORT_FILE = "leapp-insights-tasks-%s-logs" % (
+    "upgrade" if IS_UPGRADE else "preupgrade"
+)
+
+logger = logging.getLogger(__name__)
+
+
 class ProcessError(Exception):
     """Custom exception to report errors during setup and run of leapp"""
 
@@ -87,9 +109,100 @@ class OutputCollector(object):
         }
 
 
+def setup_sos_report():
+    """Setup sos report log collection."""
+    if not os.path.exists(SOS_REPORT_FOLDER):
+        os.makedirs(SOS_REPORT_FOLDER)
+
+    script_log_file = os.path.join(LOG_DIR, LOG_FILENAME)
+    sosreport_link_file = os.path.join(SOS_REPORT_FOLDER, SOS_REPORT_FILE)
+    # In case the file for sos report does not exist, lets create one and add
+    # the log file path to it.
+    if not os.path.exists(sosreport_link_file):
+        with open(sosreport_link_file, mode="w") as handler:
+            handler.write(":%s\n" % script_log_file)
+
+
+def setup_logger_handler():
+    """
+    Setup custom logging levels, handlers, and so on. Call this method from
+    your application's main start point.
+    """
+    # Receive the log level from the worker and try to parse it. If the log
+    # level is not compatible with what the logging library expects, set the
+    # log level to INFO automatically.
+    log_level = os.getenv("RHC_WORKER_LOG_LEVEL", "INFO").upper()
+    log_level = logging.getLevelName(log_level)
+    if isinstance(log_level, str):
+        log_level = logging.INFO
+
+    # enable raising exceptions
+    logging.raiseExceptions = True
+    logger.setLevel(log_level)
+
+    # create sys.stdout handler for info/debug
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    stdout_handler.setFormatter(formatter)
+
+    # Create the directory if it don't exist
+    if not os.path.exists(LOG_DIR):
+        os.makedirs(LOG_DIR)
+
+    log_filepath = os.path.join(LOG_DIR, LOG_FILENAME)
+    file_handler = logging.FileHandler(log_filepath)
+    file_handler.setFormatter(formatter)
+
+    # can flush logs to the file that were logged before initializing the file handler
+    logger.addHandler(stdout_handler)
+    logger.addHandler(file_handler)
+
+
+def archive_old_logger_files():
+    """
+    Archive the old log files to not mess with multiple runs outputs. Every
+    time a new run begins, this method will be called to archive the previous
+    logs if there is a `convert2rhel.log` file there, it will be archived using
+    the same name for the log file, but having an appended timestamp to it.
+    For example:
+        /var/log/leapp-insights-tasks/archive/leapp-insights-tasks-1635162445070567607.log
+        /var/log/leapp-insights-tasks/archive/leapp-insights-tasks-1635162478219820043.log
+    This way, the user can track the logs for each run individually based on
+    the timestamp.
+    """
+
+    current_log_file = os.path.join(LOG_DIR, LOG_FILENAME)
+    archive_log_dir = os.path.join(LOG_DIR, "archive")
+
+    # No log file found, that means it's a first run or it was manually deleted
+    if not os.path.exists(current_log_file):
+        return
+
+    stat = os.stat(current_log_file)
+
+    # Get the last modified time in UTC
+    last_modified_at = gmtime(stat.st_mtime)
+
+    # Format time to a human-readable format
+    formatted_time = strftime("%Y%m%dT%H%M%SZ", last_modified_at)
+
+    # Create the directory if it don't exist
+    if not os.path.exists(archive_log_dir):
+        os.makedirs(archive_log_dir)
+
+    file_name, suffix = tuple(LOG_FILENAME.rsplit(".", 1))
+    archive_log_file = "%s/%s-%s.%s" % (
+        archive_log_dir,
+        file_name,
+        formatted_time,
+        suffix,
+    )
+    shutil.move(current_log_file, archive_log_file)
+
+
 def get_rhel_version():
     """Currently we execute the task only for RHEL 7 or 8"""
-    print("Checking OS distribution and version ID ...")
+    logger.info("Checking OS distribution and version ID ...")
     try:
         distribution_id = None
         version_id = None
@@ -100,13 +213,13 @@ def get_rhel_version():
                 elif line.startswith("VERSION_ID="):
                     version_id = line.split("=")[1].strip().strip('"')
     except IOError:
-        print("Couldn't read /etc/os-release")
+        logger.warn("Couldn't read /etc/os-release")
     return distribution_id, version_id
 
 
 def is_non_eligible_releases(release):
     """Check if the release is eligible for upgrade or preupgrade."""
-    print("Exit if not RHEL 7 or RHEL 8 ...")
+    logger.info("Exit if not RHEL 7 or RHEL 8 ...")
     major_version, _ = release.split(".") if release is not None else (None, None)
     return release is None or major_version not in ALLOWED_RHEL_RELEASES
 
@@ -129,7 +242,7 @@ def run_subprocess(cmd, print_cmd=True, env=None, wait=True):
         raise TypeError("cmd should be a list, not a str")
 
     if print_cmd:
-        print("Calling command '%s'" % " ".join(cmd))
+        logger.info("Calling command '%s'", " ".join(cmd))
 
     process = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, env=env
@@ -225,9 +338,9 @@ def _get_leapp_command_and_packages(version):
 def setup_leapp(version):
     leapp_install_command, rhel_rhui_packages = _get_leapp_command_and_packages(version)
     if _check_if_package_installed("leapp-upgrade"):
-        print("'leapp-upgrade' already installed, skipping ...")
+        logger.info("'leapp-upgrade' already installed, skipping ...")
     else:
-        print("Installing leapp ...")
+        logger.info("Installing leapp ...")
         output, returncode = run_subprocess(leapp_install_command)
         if returncode:
             raise ProcessError(
@@ -236,7 +349,7 @@ def setup_leapp(version):
                 % (returncode, output.rstrip("\n")),
             )
 
-    print("Check installed rhui packages ...")
+    logger.info("Check installed rhui packages ...")
     for pkg in rhel_rhui_packages:
         if _check_if_package_installed(pkg["src_pkg"]):
             pkg["installed"] = True
@@ -244,7 +357,7 @@ def setup_leapp(version):
 
 
 def should_use_no_rhsm_check(rhui_installed, command):
-    print("Checking if subscription manager and repositories are available ...")
+    logger.info("Checking if subscription manager and repositories are available ...")
     rhsm_repo_check_fail = True
     rhsm_installed_check = _check_if_package_installed("subscription-manager")
     if rhsm_installed_check:
@@ -258,10 +371,9 @@ def should_use_no_rhsm_check(rhui_installed, command):
         )
 
     if rhui_installed and not rhsm_repo_check_fail:
-        print(
-            "RHUI packages detected, adding --no-rhsm flag to {} command".format(
-                SCRIPT_TYPE.title()
-            )
+        logger.info(
+            "RHUI packages detected, adding --no-rhsm flag to % command",
+            SCRIPT_TYPE.title()
         )
         command.append("--no-rhsm")
         return True
@@ -269,7 +381,7 @@ def should_use_no_rhsm_check(rhui_installed, command):
 
 
 def install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs):
-    print("Installing leapp package corresponding to installed rhui packages")
+    logger.info("Installing leapp package corresponding to installed rhui packages")
     for pkg in rhui_pkgs:
         install_pkg = pkg["leapp_pkg"]
         install_output, returncode = run_subprocess(
@@ -284,7 +396,7 @@ def install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs):
 
 
 def remove_previous_reports():
-    print("Removing previous leapp reports at /var/log/leapp/leapp-report.* ...")
+    logger.info("Removing previous leapp reports at /var/log/leapp/leapp-report.* ...")
 
     if os.path.exists(JSON_REPORT_PATH):
         os.remove(JSON_REPORT_PATH)
@@ -303,7 +415,7 @@ def execute_operation(command):
         else:
             new_env[key] = value
 
-    print("Executing {} ...".format(SCRIPT_TYPE.title()))
+    logger.info("Executing %s ...", SCRIPT_TYPE.title())
     output, _ = run_subprocess(command, env=new_env)
 
     return output
@@ -313,7 +425,7 @@ def _find_highest_report_level(entries):
     """
     Gather status codes from entries.
     """
-    print("Collecting and combining report status.")
+    logger.info("Collecting and combining report status.")
     action_level_combined = [value["severity"] for value in entries]
 
     valid_action_levels = [
@@ -324,14 +436,14 @@ def _find_highest_report_level(entries):
 
 
 def parse_results(output, reboot_required=False):
-    print("Processing {} results ...".format(SCRIPT_TYPE.title()))
+    logger.info("Processing %s results ...", SCRIPT_TYPE.title())
 
     report_json = "Not found"
     message = "Can't open json report at " + JSON_REPORT_PATH
     alert = True
     status = "ERROR"
 
-    print("Reading JSON report")
+    logger.info("Reading JSON report")
     if os.path.exists(JSON_REPORT_PATH):
         with open(JSON_REPORT_PATH, mode="r") as handler:
             report_json = json.load(handler)
@@ -388,7 +500,7 @@ def parse_results(output, reboot_required=False):
     output.alert = alert
     output.message = message
 
-    print("Reading TXT report")
+    logger.info("Reading TXT report")
     report_txt = "Not found"
     if os.path.exists(TXT_REPORT_PATH):
         with open(TXT_REPORT_PATH, mode="r") as handler:
@@ -399,24 +511,28 @@ def parse_results(output, reboot_required=False):
 
 def update_insights_inventory(output):
     """Call insights-client to update insights inventory."""
-    print("Updating system status in Red Hat Insights.")
+    logger.info("Updating system status in Red Hat Insights.")
     _, returncode = run_subprocess(cmd=["/usr/bin/insights-client"])
 
     if returncode:
-        print("System registration failed with exit code %s." % returncode)
+        logger.info("System registration failed with exit code %s.", returncode)
         output.message += " Failed to update Insights Inventory."
         output.alert = True
         return
 
-    print("System registered with insights-client successfully.")
+    logger.info("System registered with insights-client successfully.")
 
 
 def reboot_system():
-    print("Rebooting system in 1 minute.")
+    logger.info("Rebooting system in 1 minute.")
     run_subprocess(["/usr/sbin/shutdown", "-r", "1"], wait=False)
 
 
 def main():
+    """Main entrypoint for the script."""
+    setup_sos_report()
+    archive_old_logger_files()
+    setup_logger_handler()
     try:
         # Exit if invalid value for SCRIPT_TYPE
         if SCRIPT_TYPE not in ["PREUPGRADE", "UPGRADE"]:
@@ -454,11 +570,11 @@ def main():
         upgrade_reboot_required = REBOOT_GUIDANCE_MESSAGE in leapp_output
         parse_results(output, upgrade_reboot_required)
         update_insights_inventory(output)
-        print("Operation {} finished successfully.".format(SCRIPT_TYPE.title()))
+        logger.info("Operation %s finished successfully.", SCRIPT_TYPE.title())
         if upgrade_reboot_required:
             reboot_system()
     except ProcessError as exception:
-        print(exception.report)
+        logger.error(exception.report)
         output = OutputCollector(
             status="ERROR",
             alert=True,
@@ -467,7 +583,7 @@ def main():
             report=exception.report,
         )
     except Exception as exception:
-        print(str(exception))
+        logger.critical(str(exception))
         output = OutputCollector(
             status="ERROR",
             alert=True,
