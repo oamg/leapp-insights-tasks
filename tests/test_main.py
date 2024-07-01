@@ -176,7 +176,8 @@ def test_main_eligible_release_upgrade(
     mock_execute_operation.assert_called_once()
     mock_parse_results.assert_called_once()
     mock_update_insights_inventory.assert_called_once()
-    mock_reboot_system.assert_called_once()
+    # NOTE: reboot_system is currently expected to not be called
+    mock_reboot_system.assert_not_called()
     mock_setup_logger_handler.assert_called_once()
     mock_setup_sos_report.assert_called_once()
     mock_archive_old_logger_files.assert_called_once()

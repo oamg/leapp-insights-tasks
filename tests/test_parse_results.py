@@ -80,7 +80,7 @@ def test_gather_report_files_exist_with_reboot(
     assert output.report_json.get("entries") == mock_entries
     assert (
         output.message
-        == "No problems found. System will be upgraded. Rebooting system in 1 minute. After reboot check inventory to verify the system is registered with new RHEL major version."
+        == "No problems found. Please reboot the system at your earliest convenience to continue with the upgrade process. After reboot check inventory to verify the system is registered with new RHEL major version."
     )
 
 

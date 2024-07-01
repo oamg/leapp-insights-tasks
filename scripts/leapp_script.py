@@ -496,7 +496,8 @@ def parse_results(output, reboot_required=False):
 
         if reboot_required:
             message = (
-                "No problems found. System will be upgraded. Rebooting system in 1 minute. "
+                "No problems found. Please reboot the system at your earliest convenience "
+                "to continue with the upgrade process. "
                 "After reboot check inventory to verify the system is registered with new RHEL major version."
             )
         alert = inhibitor_count > 0 or error_count > 0
@@ -587,8 +588,8 @@ def main():
         logger.info("Operation %s finished successfully.", SCRIPT_TYPE.title())
 
         # NOTE: Leapp has --reboot option but we are not using it because we need to send update to Insights before reboot
-        if upgrade_reboot_required:
-            reboot_system()
+        # if upgrade_reboot_required:
+        #     reboot_system()
     except ProcessError as exception:
         logger.error(exception.report)
         output = OutputCollector(
