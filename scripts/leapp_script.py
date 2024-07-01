@@ -405,7 +405,7 @@ def remove_previous_reports():
         os.remove(TXT_REPORT_PATH)
 
 
-def execute_operation(command):
+def parse_env_vars():
     new_env = {}
     for key, value in os.environ.items():
         valid_prefix = "RHC_WORKER_"
@@ -414,9 +414,20 @@ def execute_operation(command):
             new_env[key.replace(valid_prefix, "")] = value
         else:
             new_env[key] = value
+    return new_env
+
+
+def execute_operation(command, env=None):
+    # NOTE: Put logic here to adjust command based on environment variables
+    # if "LEAPP_DEBUG" in env:
+    #     command.append("--debug")
+    # if "LEAPP_NO_RHSM" in env:
+    #     command.append("--no-rhsm")
+    # if "LEAPP_ENABLE_REPOS" in env:
+    #     command.extend([["--enablerepo", repo] for repo in env["LEAPP_ENABLE_REPOS"].split(",")])
 
     logger.info("Executing %s ...", SCRIPT_TYPE.title())
-    output, _ = run_subprocess(command, env=new_env)
+    output, _ = run_subprocess(command, env=env)
 
     return output
 
@@ -566,11 +577,16 @@ def main():
             install_leapp_pkg_corresponding_to_installed_rhui(rhui_pkgs)
 
         remove_previous_reports()
-        leapp_output = execute_operation(operation_command)
+
+        # NOTE: adjust commands based on parameters in environment variables
+        env = parse_env_vars()
+        leapp_output = execute_operation(operation_command, env=env)
         upgrade_reboot_required = REBOOT_GUIDANCE_MESSAGE in leapp_output
         parse_results(output, upgrade_reboot_required)
         update_insights_inventory(output)
         logger.info("Operation %s finished successfully.", SCRIPT_TYPE.title())
+
+        # NOTE: Leapp has --reboot option but we are not using it because we need to send update to Insights before reboot
         if upgrade_reboot_required:
             reboot_system()
     except ProcessError as exception:
