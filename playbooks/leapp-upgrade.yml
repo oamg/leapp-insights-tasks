@@ -210,7 +210,7 @@
         - name: Set message if leapp upgrade succeeded
           set_fact:
             message: >-
-              No problems found. The system will be upgraded. Rebooting system in 1 minute.
+              No problems found. Please reboot the system at your earliest convenience to continue with the upgrade process.
               After reboot check inventory to verify the RHEL system is registered with new major version.
           when: is_leapp_upgrade_successful is true
 
@@ -230,21 +230,21 @@
     - name: Start insights-client for immediate data collection of leapp-report
       ansible.builtin.shell: insights-client >/dev/null 2>&1
 
-    - name: Schedule reboot and Insights report if leapp upgrade is successful
-      block:
-        - name: Schedule insights-client after boot
-          file:
-            path: "/etc/insights-client/.run_insights_client_next_boot"
-            state: touch
-        - name: Enable boot service
-          systemd:
-            name: insights-client-boot.service
-            enabled: true
-          ignore_errors: true
-        - name: Schedule system reboot for 1 minute in the future
-          shell: shutdown -r +1 "Ansible triggered reboot"
-          ignore_errors: true
-      when: is_leapp_upgrade_successful is true
+    # - name: Schedule reboot and Insights report if leapp upgrade is successful
+    #   block:
+    #     - name: Schedule insights-client after boot
+    #       file:
+    #         path: "/etc/insights-client/.run_insights_client_next_boot"
+    #         state: touch
+    #     - name: Enable boot service
+    #       systemd:
+    #         name: insights-client-boot.service
+    #         enabled: true
+    #       ignore_errors: true
+    #     - name: Schedule system reboot for 1 minute in the future
+    #       shell: shutdown -r +1 "Ansible triggered reboot"
+    #       ignore_errors: true
+    #   when: is_leapp_upgrade_successful is true
 
     - name: Print Task Result
       ansible.builtin.debug:

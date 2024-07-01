@@ -1,4 +1,4 @@
-from mock import patch, Mock
+from mock import patch, Mock, ANY
 from scripts.leapp_script import (
     main,
     OutputCollector,
@@ -66,6 +66,7 @@ def test_main_non_eligible_release_preupgrade(
     mock_archive_old_logger_files.assert_called_once()
 
 
+@patch("scripts.leapp_script.os.environ", {"RHC_WORKER_LEAPP_DEBUG": "true"})
 @patch("scripts.leapp_script.SCRIPT_TYPE", "PREUPGRADE")
 @patch("scripts.leapp_script.IS_PREUPGRADE", True)
 @patch("scripts.leapp_script.parse_results")
@@ -111,7 +112,10 @@ def test_main_eligible_release_preupgrade(
     mock_should_use_no_rhsm_check.assert_called_once()
     mock_install_rhui.assert_called_once()
     mock_remove_previous_reports.assert_called_once()
-    mock_execute_operation.assert_called_once()
+    mock_execute_operation.assert_called_once_with(
+        ["/usr/bin/leapp", "preupgrade", "--report-schema=1.2.0"],
+        env={"LEAPP_DEBUG": "true"},
+    )
     mock_parse_results.assert_called_once()
     mock_update_insights_inventory.assert_called_once()
     mock_setup_logger_handler.assert_called_once()
@@ -172,7 +176,8 @@ def test_main_eligible_release_upgrade(
     mock_execute_operation.assert_called_once()
     mock_parse_results.assert_called_once()
     mock_update_insights_inventory.assert_called_once()
-    mock_reboot_system.assert_called_once()
+    # NOTE: reboot_system is currently expected to not be called
+    mock_reboot_system.assert_not_called()
     mock_setup_logger_handler.assert_called_once()
     mock_setup_sos_report.assert_called_once()
     mock_archive_old_logger_files.assert_called_once()
