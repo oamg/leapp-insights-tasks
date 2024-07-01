@@ -34,20 +34,9 @@ Currently there is given format of the scripts stdout that is expected to be par
 
 Red Hat Insights Tasks are always distributed to registered systems as signed yaml files, those are either executed via [rhc-worker-script](https://github.com/oamg/rhc-worker-script) or [rhc-worker-playbook](https://github.com/RedHatInsights/rhc-worker-playbook). For leapp this generally means that rhc-worker-script is used for RHEL 7 systems and rhc-playbook-worker is used for RHEL 8+ systems.
 
-So in short [playbooks folder](playbooks) contains true signed ansible playbooks and also files from [scripts folder](scripts) wrapped in signed yaml envelope.
+So in short [playbooks folder](playbooks) contains ansible playbooks and also files from [scripts folder](scripts) wrapped in signed yaml envelope. Beware that the signatures may not be valid, the latest signed playbooks can be downloaded directly in Red Hat Insights Tasks UI, follow [the Tasks official documentation](https://docs.redhat.com/en/documentation/red_hat_insights/1-latest/html/assessing_and_remediating_system_issues_using_red_hat_insights_tasks/overview-tasks).
 
-
-### Preupgrade
-
-You can find official leapp_preupgrade_ansible.yaml for rhc-worker-playbook in playbooks folder. This playbook is officially signed and used on Red Hat Insights.
-
-For rhc-worker-script we have only raw script leapp_preupgrade.py, signed version wrapped in yaml is still in development.
-
-### Upgrade
-
-**TBD** for rhc-worker-playbook.
-
-For rhc-worker-script we have only raw script leapp_upgrade.py, signed version wrapped in yaml is still in development.
+Only RHEL 8 preupgrade is available in Red Hat Insights production environment.
 
 ## Local Development & Contributing
 
